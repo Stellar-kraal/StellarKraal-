@@ -1979,3 +1979,60 @@ fn test_set_staleness_threshold_unauthorized() {
 
     client.set_staleness_threshold(&attacker, &7200);
 }
+
+// ── #703: Guard against removing the last oracle ───────────────────────
+
+/// remove_oracle returns OracleRequired when removing the last oracle
+/// while active loans exist.
+#[test]
+fn test_remove_last_oracle_blocked_with_active_loan() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // Create an active loan.
+    let borrower = Address::generate(&env);
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
+    client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+
+    // Attempt to remove the only oracle — should fail.
+    let result = client.try_remove_oracle(&admin, &oracle);
+    assert_eq!(result, Err(Ok(Error::OracleRequired)),
+        "removing last oracle with active loans must return OracleRequired (#26)");
+}
+
+/// remove_oracle is allowed when other oracles remain, even with active loans.
+#[test]
+fn test_remove_oracle_allowed_when_other_oracles_remain() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // Add a second oracle.
+    let oracle2 = Address::generate(&env);
+    client.add_oracle(&admin, &oracle2);
+
+    // Create an active loan.
+    let borrower = Address::generate(&env);
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
+    client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+
+    // Removing one of two oracles must succeed.
+    client.remove_oracle(&admin, &oracle);
+    let remaining = client.get_oracles();
+    assert_eq!(remaining.len(), 1, "one oracle should remain after removal");
+    assert_eq!(remaining.get(0).unwrap(), oracle2);
+}
+
+/// remove_oracle is allowed when no active loans exist (last oracle can go).
+#[test]
+fn test_remove_last_oracle_allowed_no_active_loans() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // No loans at all — removing the only oracle should succeed.
+    client.remove_oracle(&admin, &oracle);
+    let remaining = client.get_oracles();
+    assert_eq!(remaining.len(), 0, "oracle list should be empty after removal");
+}

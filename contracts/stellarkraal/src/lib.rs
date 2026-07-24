@@ -126,6 +126,8 @@ pub enum Error {
     NoUpgradePending = 24,
     /// `execute_upgrade` called before the 24-hour timelock has elapsed.
     TimelockNotElapsed = 25,
+    /// `remove_oracle` would leave zero oracles while active loans exist.
+    OracleRequired = 26,
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -1206,6 +1208,10 @@ impl StellarKraal {
     }
 
     // ── remove_oracle ─────────────────────────────────────────────────────
+    /// Remove an oracle from the registered list.
+    ///
+    /// Returns [`Error::OracleRequired`] if removing the oracle would leave
+    /// zero registered oracles **and** at least one active loan exists.
     pub fn remove_oracle(env: Env, admin: Address, oracle: Address) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -1220,6 +1226,17 @@ impl StellarKraal {
             }
         }
         if let Some(idx) = index {
+            // Guard: refuse if this is the last oracle and active loans exist.
+            if oracles.len() == 1 {
+                let loan_counter: u64 = env.storage().instance().get(&DataKey::LoanCounter).unwrap_or(0);
+                for loan_id in 1..=loan_counter {
+                    if let Some(loan) = env.storage().persistent().get::<_, LoanRecord>(&DataKey::Loan(loan_id)) {
+                        if loan.status == LoanStatus::Active {
+                            return Err(Error::OracleRequired);
+                        }
+                    }
+                }
+            }
             oracles.remove(idx);
             env.storage().instance().set(&ORACLES, &oracles);
             Ok(())
