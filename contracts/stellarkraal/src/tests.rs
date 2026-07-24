@@ -1979,3 +1979,96 @@ fn test_set_staleness_threshold_unauthorized() {
 
     client.set_staleness_threshold(&attacker, &7200);
 }
+
+// ── #709: Store last 5 health factor values per loan ───────────────────
+
+/// health_factor updates hf_history on each call.
+#[test]
+fn test_hf_history_grows_with_each_call() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let borrower = Address::generate(&env);
+
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+
+    // Initially history is empty.
+    let loan = client.get_loan(&loan_id);
+    assert_eq!(loan.hf_history.len(), 0, "history should start empty");
+
+    // After 1st call.
+    client.health_factor(&loan_id);
+    let loan = client.get_loan(&loan_id);
+    assert_eq!(loan.hf_history.len(), 1);
+
+    // After 2nd call.
+    client.health_factor(&loan_id);
+    let loan = client.get_loan(&loan_id);
+    assert_eq!(loan.hf_history.len(), 2);
+}
+
+/// hf_history is capped at 5 entries (oldest evicted).
+#[test]
+fn test_hf_history_capped_at_5() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let borrower = Address::generate(&env);
+
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+
+    // Call health_factor 7 times; history must stay at 5.
+    for _ in 0..7 {
+        client.health_factor(&loan_id);
+    }
+    let loan = client.get_loan(&loan_id);
+    assert_eq!(loan.hf_history.len(), 5, "hf_history must be capped at 5");
+}
+
+/// hf_history stores values in order (newest last).
+#[test]
+fn test_hf_history_ordering() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let borrower = Address::generate(&env);
+
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+
+    client.health_factor(&loan_id);
+    let loan = client.get_loan(&loan_id);
+    let first = loan.hf_history.get(0).unwrap();
+
+    client.health_factor(&loan_id);
+    let loan = client.get_loan(&loan_id);
+    let last = loan.hf_history.get(loan.hf_history.len() - 1).unwrap();
+
+    // Both calls use identical state so values should be equal.
+    assert_eq!(first, last, "values should be equal when loan state is unchanged");
+    assert_eq!(loan.hf_history.len(), 2);
+}
+
+/// get_loan returns hf_history.
+#[test]
+fn test_get_loan_returns_hf_history() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let borrower = Address::generate(&env);
+
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+
+    client.health_factor(&loan_id);
+    client.health_factor(&loan_id);
+    client.health_factor(&loan_id);
+
+    let loan = client.get_loan(&loan_id);
+    assert_eq!(loan.hf_history.len(), 3, "get_loan should include hf_history");
+    for val in loan.hf_history.iter() {
+        assert!(val > 0, "all hf_history entries should be positive");
+    }
+}

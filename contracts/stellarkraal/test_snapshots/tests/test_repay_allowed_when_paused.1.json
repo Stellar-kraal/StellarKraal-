@@ -326,6 +326,14 @@
                     },
                     {
                       "key": {
+                        "symbol": "hf_history"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "id"
                       },
                       "val": {
@@ -1664,6 +1672,14 @@
                         "u64": 1
                       }
                     ]
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "hf_history"
+                  },
+                  "val": {
+                    "vec": []
                   }
                 },
                 {

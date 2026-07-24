@@ -182,6 +182,9 @@ pub struct LoanRecord {
     pub last_interest_time: u64,
     /// Current lifecycle status.
     pub status: LoanStatus,
+    /// Rolling log of the last 5 computed health factor values (scaled by 1e7,
+    /// newest appended last). Updated on every successful `health_factor` call.
+    pub hf_history: Vec<i128>,
 }
 
 /// Protocol fee configuration.
@@ -594,6 +597,7 @@ impl StellarKraal {
             interest_accrued: 0,
             last_interest_time: env.ledger().timestamp(),
             status: LoanStatus::Active,
+            hf_history: Vec::new(&env),
         };
         env.storage().persistent().set(&DataKey::Loan(loan_id), &loan);
         env.storage().persistent().extend_ttl(&DataKey::Loan(loan_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_LEDGERS);
@@ -870,8 +874,11 @@ impl StellarKraal {
     // ── health_factor ─────────────────────────────────────────────────────
     /// Compute the health factor for a loan (scaled by 10 000). Rejects with
     /// [`Error::InvalidPrice`] if the oracle price is older than `STALE_THR`.
+    ///
+    /// Each successful call appends the result to `LoanRecord::hf_history`,
+    /// keeping only the last 5 values (oldest evicted when the cap is reached).
     pub fn health_factor(env: Env, loan_id: u64) -> Result<i128, Error> {
-        let loan: LoanRecord = env
+        let mut loan: LoanRecord = env
             .storage()
             .persistent()
             .get(&DataKey::Loan(loan_id))
@@ -883,7 +890,23 @@ impl StellarKraal {
             return Err(Error::InvalidPrice);
         }
         let liq_thr: u32 = env.storage().instance().get(&LIQ_THR).unwrap();
-        Self::compute_health_factor_with_thr(&loan, liq_thr)
+        let hf = Self::compute_health_factor_with_thr(&loan, liq_thr)?;
+
+        // ── Update rolling history (cap = 5) ──────────────────────────
+        const HF_HISTORY_CAP: u32 = 5;
+        if loan.hf_history.len() >= HF_HISTORY_CAP {
+            let mut new_hist = Vec::new(&env);
+            let start = loan.hf_history.len() - (HF_HISTORY_CAP - 1);
+            for i in start..loan.hf_history.len() {
+                new_hist.push_back(loan.hf_history.get(i).unwrap());
+            }
+            loan.hf_history = new_hist;
+        }
+        loan.hf_history.push_back(hf);
+        env.storage().persistent().set(&DataKey::Loan(loan_id), &loan);
+        env.storage().persistent().extend_ttl(&DataKey::Loan(loan_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_LEDGERS);
+
+        Ok(hf)
     }
 
     // ── update_appraisal ──────────────────────────────────────────────────
