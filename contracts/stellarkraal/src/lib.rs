@@ -126,6 +126,8 @@ pub enum Error {
     NoUpgradePending = 24,
     /// `execute_upgrade` called before the 24-hour timelock has elapsed.
     TimelockNotElapsed = 25,
+    /// `remove_oracle` would leave zero oracles while active loans exist.
+    OracleRequired = 26,
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -182,6 +184,9 @@ pub struct LoanRecord {
     pub last_interest_time: u64,
     /// Current lifecycle status.
     pub status: LoanStatus,
+    /// Rolling log of the last 5 computed health factor values (scaled by 1e7,
+    /// newest appended last). Updated on every successful `health_factor` call.
+    pub hf_history: Vec<i128>,
 }
 
 /// Protocol fee configuration.
@@ -361,6 +366,10 @@ impl StellarKraal {
 
     // ── pause ─────────────────────────────────────────────────────────────
     /// Pause the contract, blocking new loans and liquidations.
+    ///
+    /// Emits `pause_activated` with:
+    /// - `paused_by`           – the admin address that triggered the pause
+    /// - `pause_expiry_ledger` – the ledger timestamp at which the pause expires
     pub fn pause(env: Env, admin: Address) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -375,12 +384,19 @@ impl StellarKraal {
 
         env.storage().instance().set(&PAUSED, &true);
         env.storage().instance().set(&PAUSE_EXP, &expires_at);
-        env.events().publish((symbol_short!("Pause"),), expires_at);
+        env.events().publish(
+            (symbol_short!("Pause"), symbol_short!("activated")),
+            (admin, expires_at),
+        );
         Ok(())
     }
 
     // ── unpause ───────────────────────────────────────────────────────────
     /// Unpause the contract.
+    ///
+    /// Emits `pause_lifted` with:
+    /// - `lifted_by`   – the admin address that triggered the unpause
+    /// - `was_manual`  – `true` (manual unpause always sets this to true)
     pub fn unpause(env: Env, admin: Address) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -392,7 +408,10 @@ impl StellarKraal {
 
         env.storage().instance().set(&PAUSED, &false);
         env.storage().instance().set(&PAUSE_EXP, &0u64);
-        env.events().publish((symbol_short!("Unpause"),), env.ledger().timestamp());
+        env.events().publish(
+            (symbol_short!("Pause"), symbol_short!("lifted")),
+            (admin, true),
+        );
         Ok(())
     }
 
@@ -450,6 +469,9 @@ impl StellarKraal {
 
     // ── set_liquidation_threshold ─────────────────────────────────────────
     /// Update the liquidation threshold in basis points.
+    ///
+    /// Emits a `liquidation_threshold_updated` event containing both the old
+    /// and the new threshold values so off-chain systems can detect the change.
     pub fn set_liquidation_threshold(env: Env, admin: Address, threshold_bps: u32) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -457,8 +479,12 @@ impl StellarKraal {
         if threshold_bps == 0 || threshold_bps > 10_000 {
             return Err(Error::InvalidAmount);
         }
+        let old_threshold: u32 = env.storage().instance().get(&LIQ_THR).unwrap_or(0);
         env.storage().instance().set(&LIQ_THR, &threshold_bps);
-        env.events().publish((symbol_short!("Admin"), symbol_short!("LiqThrUpd")), threshold_bps);
+        env.events().publish(
+            (symbol_short!("Admin"), symbol_short!("LiqThrUpd")),
+            (old_threshold, threshold_bps),
+        );
         Ok(())
     }
 
@@ -594,6 +620,7 @@ impl StellarKraal {
             interest_accrued: 0,
             last_interest_time: env.ledger().timestamp(),
             status: LoanStatus::Active,
+            hf_history: Vec::new(&env),
         };
         env.storage().persistent().set(&DataKey::Loan(loan_id), &loan);
         env.storage().persistent().extend_ttl(&DataKey::Loan(loan_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_LEDGERS);
@@ -870,8 +897,11 @@ impl StellarKraal {
     // ── health_factor ─────────────────────────────────────────────────────
     /// Compute the health factor for a loan (scaled by 10 000). Rejects with
     /// [`Error::InvalidPrice`] if the oracle price is older than `STALE_THR`.
+    ///
+    /// Each successful call appends the result to `LoanRecord::hf_history`,
+    /// keeping only the last 5 values (oldest evicted when the cap is reached).
     pub fn health_factor(env: Env, loan_id: u64) -> Result<i128, Error> {
-        let loan: LoanRecord = env
+        let mut loan: LoanRecord = env
             .storage()
             .persistent()
             .get(&DataKey::Loan(loan_id))
@@ -883,7 +913,23 @@ impl StellarKraal {
             return Err(Error::InvalidPrice);
         }
         let liq_thr: u32 = env.storage().instance().get(&LIQ_THR).unwrap();
-        Self::compute_health_factor_with_thr(&loan, liq_thr)
+        let hf = Self::compute_health_factor_with_thr(&loan, liq_thr)?;
+
+        // ── Update rolling history (cap = 5) ──────────────────────────
+        const HF_HISTORY_CAP: u32 = 5;
+        if loan.hf_history.len() >= HF_HISTORY_CAP {
+            let mut new_hist = Vec::new(&env);
+            let start = loan.hf_history.len() - (HF_HISTORY_CAP - 1);
+            for i in start..loan.hf_history.len() {
+                new_hist.push_back(loan.hf_history.get(i).unwrap());
+            }
+            loan.hf_history = new_hist;
+        }
+        loan.hf_history.push_back(hf);
+        env.storage().persistent().set(&DataKey::Loan(loan_id), &loan);
+        env.storage().persistent().extend_ttl(&DataKey::Loan(loan_id), PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_LEDGERS);
+
+        Ok(hf)
     }
 
     // ── update_appraisal ──────────────────────────────────────────────────
@@ -1206,6 +1252,10 @@ impl StellarKraal {
     }
 
     // ── remove_oracle ─────────────────────────────────────────────────────
+    /// Remove an oracle from the registered list.
+    ///
+    /// Returns [`Error::OracleRequired`] if removing the oracle would leave
+    /// zero registered oracles **and** at least one active loan exists.
     pub fn remove_oracle(env: Env, admin: Address, oracle: Address) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -1220,6 +1270,17 @@ impl StellarKraal {
             }
         }
         if let Some(idx) = index {
+            // Guard: refuse if this is the last oracle and active loans exist.
+            if oracles.len() == 1 {
+                let loan_counter: u64 = env.storage().instance().get(&DataKey::LoanCounter).unwrap_or(0);
+                for loan_id in 1..=loan_counter {
+                    if let Some(loan) = env.storage().persistent().get::<_, LoanRecord>(&DataKey::Loan(loan_id)) {
+                        if loan.status == LoanStatus::Active {
+                            return Err(Error::OracleRequired);
+                        }
+                    }
+                }
+            }
             oracles.remove(idx);
             env.storage().instance().set(&ORACLES, &oracles);
             Ok(())

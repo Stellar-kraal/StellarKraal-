@@ -326,6 +326,14 @@
                     },
                     {
                       "key": {
+                        "symbol": "hf_history"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "id"
                       },
                       "val": {
@@ -1407,10 +1415,20 @@
             "topics": [
               {
                 "symbol": "Pause"
+              },
+              {
+                "symbol": "activated"
               }
             ],
             "data": {
-              "u64": 86400
+              "vec": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "u64": 86400
+                }
+              ]
             }
           }
         }
@@ -1664,6 +1682,14 @@
                         "u64": 1
                       }
                     ]
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "hf_history"
+                  },
+                  "val": {
+                    "vec": []
                   }
                 },
                 {
