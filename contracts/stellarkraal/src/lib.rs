@@ -361,6 +361,10 @@ impl StellarKraal {
 
     // ── pause ─────────────────────────────────────────────────────────────
     /// Pause the contract, blocking new loans and liquidations.
+    ///
+    /// Emits `pause_activated` with:
+    /// - `paused_by`           – the admin address that triggered the pause
+    /// - `pause_expiry_ledger` – the ledger timestamp at which the pause expires
     pub fn pause(env: Env, admin: Address) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -375,12 +379,19 @@ impl StellarKraal {
 
         env.storage().instance().set(&PAUSED, &true);
         env.storage().instance().set(&PAUSE_EXP, &expires_at);
-        env.events().publish((symbol_short!("Pause"),), expires_at);
+        env.events().publish(
+            (symbol_short!("Pause"), symbol_short!("activated")),
+            (admin, expires_at),
+        );
         Ok(())
     }
 
     // ── unpause ───────────────────────────────────────────────────────────
     /// Unpause the contract.
+    ///
+    /// Emits `pause_lifted` with:
+    /// - `lifted_by`   – the admin address that triggered the unpause
+    /// - `was_manual`  – `true` (manual unpause always sets this to true)
     pub fn unpause(env: Env, admin: Address) -> Result<(), Error> {
         Self::assert_initialized(&env)?;
         Self::assert_admin(&env, &admin)?;
@@ -392,7 +403,10 @@ impl StellarKraal {
 
         env.storage().instance().set(&PAUSED, &false);
         env.storage().instance().set(&PAUSE_EXP, &0u64);
-        env.events().publish((symbol_short!("Unpause"),), env.ledger().timestamp());
+        env.events().publish(
+            (symbol_short!("Pause"), symbol_short!("lifted")),
+            (admin, true),
+        );
         Ok(())
     }
 

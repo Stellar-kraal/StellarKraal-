@@ -2,7 +2,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short, vec,
     testutils::{storage::Persistent as _, Address as _, Ledger, Events},
-    Address, Env, Symbol, IntoVal,
+    Address, Env, Symbol, IntoVal, TryIntoVal,
 };
 use proptest::prelude::*;
 
@@ -1978,4 +1978,106 @@ fn test_set_staleness_threshold_unauthorized() {
     let attacker = Address::generate(&env);
 
     client.set_staleness_threshold(&attacker, &7200);
+}
+
+// ── #707: pause_activated and pause_lifted event schemas ───────────────
+
+/// pause emits (Pause, activated) with (paused_by, pause_expiry_ledger).
+#[test]
+fn test_pause_activated_event_data() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    client.pause(&admin);
+
+    let all_events = env.events().all();
+    let found = all_events.iter().any(|e| {
+        let topics: soroban_sdk::Vec<soroban_sdk::Val> = e.1.clone();
+        if topics.len() < 2 { return false; }
+        let t0: Result<Symbol, _> = topics.get(0).unwrap().try_into_val(&env);
+        let t1: Result<Symbol, _> = topics.get(1).unwrap().try_into_val(&env);
+        t0.map(|s| s == symbol_short!("Pause")).unwrap_or(false)
+            && t1.map(|s| s == symbol_short!("activated")).unwrap_or(false)
+    });
+    assert!(found, "pause_activated event not emitted");
+
+    for e in all_events.iter() {
+        let topics: soroban_sdk::Vec<soroban_sdk::Val> = e.1.clone();
+        if topics.len() < 2 { continue; }
+        let t0: Result<Symbol, _> = topics.get(0).unwrap().try_into_val(&env);
+        let t1: Result<Symbol, _> = topics.get(1).unwrap().try_into_val(&env);
+        if t0.map(|s| s == symbol_short!("Pause")).unwrap_or(false)
+            && t1.map(|s| s == symbol_short!("activated")).unwrap_or(false)
+        {
+            let data: (Address, u64) = e.2.try_into_val(&env)
+                .expect("pause_activated data is (paused_by, pause_expiry_ledger)");
+            assert_eq!(data.0, admin, "paused_by must be admin");
+            assert!(data.1 > 0, "pause_expiry_ledger must be positive");
+        }
+    }
+}
+
+/// unpause emits (Pause, lifted) with (lifted_by, was_manual=true).
+#[test]
+fn test_pause_lifted_event_data_manual() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    client.pause(&admin);
+    client.unpause(&admin);
+
+    let all_events = env.events().all();
+    let found = all_events.iter().any(|e| {
+        let topics: soroban_sdk::Vec<soroban_sdk::Val> = e.1.clone();
+        if topics.len() < 2 { return false; }
+        let t0: Result<Symbol, _> = topics.get(0).unwrap().try_into_val(&env);
+        let t1: Result<Symbol, _> = topics.get(1).unwrap().try_into_val(&env);
+        t0.map(|s| s == symbol_short!("Pause")).unwrap_or(false)
+            && t1.map(|s| s == symbol_short!("lifted")).unwrap_or(false)
+    });
+    assert!(found, "pause_lifted event not emitted on manual unpause");
+
+    for e in all_events.iter() {
+        let topics: soroban_sdk::Vec<soroban_sdk::Val> = e.1.clone();
+        if topics.len() < 2 { continue; }
+        let t0: Result<Symbol, _> = topics.get(0).unwrap().try_into_val(&env);
+        let t1: Result<Symbol, _> = topics.get(1).unwrap().try_into_val(&env);
+        if t0.map(|s| s == symbol_short!("Pause")).unwrap_or(false)
+            && t1.map(|s| s == symbol_short!("lifted")).unwrap_or(false)
+        {
+            let data: (Address, bool) = e.2.try_into_val(&env)
+                .expect("pause_lifted data is (lifted_by, was_manual)");
+            assert_eq!(data.0, admin, "lifted_by must be admin");
+            assert!(data.1, "was_manual should be true for manual unpause");
+        }
+    }
+}
+
+/// Auto-expiry: contract auto-unpauses when time advances past expiry.
+#[test]
+fn test_pause_auto_expiry_no_lifted_event() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    client.set_pause_duration(&admin, &1u64);
+    client.pause(&admin);
+    assert!(client.is_paused());
+
+    env.ledger().with_mut(|li| { li.timestamp += 2; });
+
+    assert!(!client.is_paused(), "contract should auto-unpause after expiry");
+
+    let all_events = env.events().all();
+    let activated_count = all_events.iter().filter(|e| {
+        let topics: soroban_sdk::Vec<soroban_sdk::Val> = e.1.clone();
+        if topics.len() < 2 { return false; }
+        let t0: Result<Symbol, _> = topics.get(0).unwrap().try_into_val(&env);
+        let t1: Result<Symbol, _> = topics.get(1).unwrap().try_into_val(&env);
+        t0.map(|s| s == symbol_short!("Pause")).unwrap_or(false)
+            && t1.map(|s| s == symbol_short!("activated")).unwrap_or(false)
+    }).count();
+    assert_eq!(activated_count, 1, "exactly one pause_activated event expected");
 }
