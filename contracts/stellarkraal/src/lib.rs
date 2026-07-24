@@ -448,6 +448,15 @@ impl StellarKraal {
         Ok(())
     }
 
+    // ── get_liquidation_threshold ─────────────────────────────────────────
+    /// Return the current liquidation threshold in basis points.
+    ///
+    /// Read-only — no authentication required.
+    pub fn get_liquidation_threshold(env: Env) -> Result<u32, Error> {
+        Self::assert_initialized(&env)?;
+        Ok(env.storage().instance().get(&LIQ_THR).unwrap())
+    }
+
     // ── set_liquidation_threshold ─────────────────────────────────────────
     /// Update the liquidation threshold in basis points.
     pub fn set_liquidation_threshold(env: Env, admin: Address, threshold_bps: u32) -> Result<(), Error> {

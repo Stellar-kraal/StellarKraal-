@@ -1979,3 +1979,23 @@ fn test_set_staleness_threshold_unauthorized() {
 
     client.set_staleness_threshold(&attacker, &7200);
 }
+
+// ── get_liquidation_threshold tests (issue #697) ───────────────────────
+
+#[test]
+fn test_get_liquidation_threshold_returns_initialized_value() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    // initialize() sets liquidation_threshold to 8000
+    assert_eq!(client.get_liquidation_threshold(), 8000u32);
+}
+
+#[test]
+fn test_get_liquidation_threshold_after_update() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    client.set_liquidation_threshold(&admin, &9000u32);
+    assert_eq!(client.get_liquidation_threshold(), 9000u32);
+}
