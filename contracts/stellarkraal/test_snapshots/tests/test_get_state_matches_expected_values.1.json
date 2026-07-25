@@ -118,7 +118,8 @@
                     "hi": 0,
                     "lo": 600000
                   }
-                }
+                },
+                "void"
               ]
             }
           },
@@ -316,6 +317,14 @@
                             "u64": 1
                           }
                         ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "hf_history"
+                      },
+                      "val": {
+                        "vec": []
                       }
                     },
                     {
@@ -1202,7 +1211,8 @@
                     "hi": 0,
                     "lo": 600000
                   }
-                }
+                },
+                "void"
               ]
             }
           }
@@ -1470,10 +1480,20 @@
             "topics": [
               {
                 "symbol": "Pause"
+              },
+              {
+                "symbol": "activated"
               }
             ],
             "data": {
-              "u64": 86400
+              "vec": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "u64": 86400
+                }
+              ]
             }
           }
         }
