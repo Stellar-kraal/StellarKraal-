@@ -172,7 +172,8 @@
                     "hi": 0,
                     "lo": 600000
                   }
-                }
+                },
+                "void"
               ]
             }
           },
@@ -1445,10 +1446,20 @@
             "topics": [
               {
                 "symbol": "Pause"
+              },
+              {
+                "symbol": "activated"
               }
             ],
             "data": {
-              "u64": 86400
+              "vec": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "u64": 86400
+                }
+              ]
             }
           }
         }
@@ -1701,7 +1712,8 @@
                     "hi": 0,
                     "lo": 600000
                   }
-                }
+                },
+                "void"
               ]
             }
           }
@@ -1801,7 +1813,8 @@
                         "hi": 0,
                         "lo": 600000
                       }
-                    }
+                    },
+                    "void"
                   ]
                 }
               ]
@@ -2102,11 +2115,21 @@
           "v0": {
             "topics": [
               {
-                "symbol": "Unpause"
+                "symbol": "Pause"
+              },
+              {
+                "symbol": "lifted"
               }
             ],
             "data": {
-              "u64": 0
+              "vec": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "bool": true
+                }
+              ]
             }
           }
         }
@@ -2431,7 +2454,8 @@
                     "hi": 0,
                     "lo": 600000
                   }
-                }
+                },
+                "void"
               ]
             }
           }

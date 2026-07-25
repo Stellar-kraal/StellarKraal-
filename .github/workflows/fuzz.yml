@@ -1,6 +1,11 @@
 name: Contract Fuzzing
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "contracts/**"
   pull_request:
     paths:
       - "contracts/**"
@@ -40,6 +45,10 @@ jobs:
       - name: Fuzz interest_rate (60s)
         working-directory: contracts/stellarkraal
         run: cargo +nightly fuzz run interest_rate -- -max_total_time=60
+
+      - name: Fuzz liquidation (60s)
+        working-directory: contracts/stellarkraal
+        run: cargo +nightly fuzz run liquidation -- -max_total_time=60
 
       - name: Upload crash artifacts
         if: failure()
