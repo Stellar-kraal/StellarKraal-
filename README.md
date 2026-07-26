@@ -219,6 +219,7 @@ npm run test:frontend
 | [Smart Contract Interface](docs/contracts/stellarkraal-interface.md) | Soroban contract public API, error codes, state changes, and CLI invocation guide |
 | [Contract API Docs](https://teslims2.github.io/StellarKraal-/contracts/) | Auto-generated `cargo doc` reference published to GitHub Pages |
 | [Observability Stack](docs/observability.md) | Prometheus metrics, Loki/Promtail logs, Grafana dashboards, alert rules, and how to extend each |
+| [Developer Onboarding](docs/development/onboarding.md) | Start here: repo layout, running services, CI/CD, commit conventions, first PR guide |
 
 ## User Guides
 
