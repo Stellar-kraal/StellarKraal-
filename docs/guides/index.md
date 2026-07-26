@@ -18,6 +18,7 @@ Step-by-step guides for borrowers using the StellarKraal protocol.
 | [Docker Setup](docker.md) | Running StellarKraal with Docker and Docker Compose. |
 | [Register Collateral (English)](en/register-collateral.md) | English-language collateral registration walkthrough. |
 | [Register Collateral (Swahili)](sw/register-collateral.md) | Swahili-language collateral registration walkthrough. |
+| [Accessibility Guide](accessibility.md) | ARIA usage patterns, testing commands, common mistakes, and pre-PR checklist for accessible components. |
 
 ---
 
