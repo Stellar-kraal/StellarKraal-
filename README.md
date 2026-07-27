@@ -243,6 +243,7 @@ npm run test:frontend
 | Guide | Description |
 |---|---|
 | [Register Livestock as Collateral](docs/guides/register-collateral.md) | Step-by-step guide (English + Kiswahili) for registering animals and requesting a loan |
+| [API Integration Tutorial](docs/guides/api-integration-tutorial.md) | How an external app can register collateral, request a loan, and monitor loan status via webhooks |
 
 See also: [Help & Guides page](/help) in the app.
 
