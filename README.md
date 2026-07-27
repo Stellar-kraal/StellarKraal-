@@ -228,6 +228,7 @@ npm run test:frontend
 | Guide | Description |
 |---|---|
 | [Register Livestock as Collateral](docs/guides/register-collateral.md) | Step-by-step guide (English + Kiswahili) for registering animals and requesting a loan |
+| [XDR Transaction Building](docs/guides/xdr-transaction-building.md) | How the backend builds Soroban transaction XDR: TransactionBuilder, nativeToScVal, simulation, and frontend signing |
 
 See also: [Help & Guides page](/help) in the app.
 
@@ -254,6 +255,7 @@ Key design decisions are documented as ADRs in [`docs/adr/`](docs/adr/).
 | [ADR-005](docs/adr/ADR-005-collateral-appraisal-model.md) | Off-chain collateral appraisal model | Accepted |
 | [ADR-006](docs/adr/ADR-006-oracle-design.md) | Multi-oracle median aggregation for price feeds | Accepted |
 | [ADR-007](docs/adr/ADR-007-oracle-twap.md) | Time-Weighted Average Price (TWAP) for liquidation price feeds | Accepted |
+| [ADR-010](docs/adr/ADR-010-event-driven-architecture.md) | Event-Driven Webhook Architecture | Accepted |
 
 To add a new ADR, copy [`docs/adr/template.md`](docs/adr/template.md), increment the number, fill in all sections, and add a row to the table above.
 

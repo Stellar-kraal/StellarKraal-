@@ -103,6 +103,9 @@ npm run test:backend    # Backend unit + integration tests
 npm run test:contract   # Soroban contract tests
 ```
 
+Minimum coverage thresholds per module are defined in
+[docs/testing/coverage-requirements.md](docs/testing/coverage-requirements.md).
+
 ## Managing Dependencies
 
 Before adding a new dependency, run `depcheck` to confirm it is not already available:
