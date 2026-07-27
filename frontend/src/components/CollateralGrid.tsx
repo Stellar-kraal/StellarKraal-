@@ -68,7 +68,7 @@ export default function CollateralGrid({
           <button
             key={collateral.id}
             onClick={() => onCardClick(collateral.id)}
-            className="text-left hover:scale-105 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-brown-600 focus:ring-offset-2 rounded-2xl"
+            className="text-left transition-all duration-200 ease-in-out hover:scale-105 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98] active:translate-y-0 active:shadow-md focus:outline-none focus:ring-2 focus:ring-brown-600 focus:ring-offset-2 rounded-2xl"
           >
             <Card
               variant="default"
