@@ -218,6 +218,10 @@ npm run test:frontend
 | [Liquidation Mechanism](docs/protocol/liquidation.md) | Health factor formula, liquidation threshold, partial liquidation examples |
 | [Smart Contract Interface](docs/contracts/stellarkraal-interface.md) | Soroban contract public API, error codes, state changes, and CLI invocation guide |
 | [Contract API Docs](https://teslims2.github.io/StellarKraal-/contracts/) | Auto-generated `cargo doc` reference published to GitHub Pages |
+| [Terraform Infrastructure Guide](docs/infrastructure-terraform.md) | Full guide to the Terraform modules: networking, ALB, compute, RDS, and Redis |
+| [JWT Authentication Flow](docs/auth-flow.md) | Challenge-response wallet auth, token refresh flow, JWT middleware, and API keys |
+| [Testing Strategy](docs/testing-strategy.md) | Unit, integration, smart contract, and E2E test layers; CI configuration |
+| [Appraisal Cache](docs/appraisal-cache.md) | Caching strategy, TTL/staleness model, and invalidation conditions |
 
 ## User Guides
 
