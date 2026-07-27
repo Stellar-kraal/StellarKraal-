@@ -218,6 +218,7 @@ npm run test:frontend
 | [Liquidation Mechanism](docs/protocol/liquidation.md) | Health factor formula, liquidation threshold, partial liquidation examples |
 | [Smart Contract Interface](docs/contracts/stellarkraal-interface.md) | Soroban contract public API, error codes, state changes, and CLI invocation guide |
 | [Contract API Docs](https://teslims2.github.io/StellarKraal-/contracts/) | Auto-generated `cargo doc` reference published to GitHub Pages |
+| [Soft Delete Pattern](docs/SOFT_DELETE.md) | When and why `deleted_at` soft-delete is used on `collaterals` and `loans` |
 
 ## User Guides
 
