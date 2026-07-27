@@ -71,7 +71,10 @@ This project uses [release-please](https://github.com/googleapis/release-please)
 
 ### Manual steps (none required for normal releases)
 
-If you need to cut a release manually, merge the open Release PR created by release-please. Do **not** manually edit `CHANGELOG.md` — it is auto-generated.
+If you need to cut a release manually, merge the open Release PR created by release-please. Do **not** manually edit the versioned release headers in `CHANGELOG.md` — those are auto-generated.
+
+When your PR changes user-facing behavior, add a bullet to the `[Unreleased]` section
+yourself following [docs/guides/changelog.md](docs/guides/changelog.md).
 
 ---
 
@@ -113,6 +116,20 @@ npx depcheck backend
 Remove any packages flagged as unused before opening a PR. This keeps install time, bundle size, and attack surface minimal.
 
 ---
+
+## Reviewer Checklist
+
+Before approving a pull request, reviewers should confirm:
+
+- [ ] PR title and commits follow Conventional Commits
+- [ ] Change is scoped to the linked issue (no unrelated diffs)
+- [ ] Frontend changes respect the design token system and pass light/dark mode checks
+- [ ] Backend changes include input validation at API boundaries
+- [ ] Soroban contract changes preserve backward-compatible ABI, or document a migration path
+- [ ] New/changed logic has corresponding tests (Jest, backend, or `cargo test` as applicable)
+- [ ] No secrets, private keys, or credentials are hardcoded
+- [ ] Docs updated if behavior, setup, or environment variables changed
+- [ ] CI is green
 
 ## Reporting Issues
 
