@@ -32,18 +32,36 @@ flowchart LR
   end
 
   subgraph Backend
-    B -->|SQL| DB[(SQLite database)]
+    B -->|SQL| DB[(SQLite / PostgreSQL)]
     B -->|RPC| S[Soroban smart contract]
+    B -->|logs, json-file driver| PT[Promtail]
+    B -->|/metrics| PR[Prometheus]
   end
 
   subgraph Contracts
     S -->|WASM| W[(Stellar contract)]
   end
+
+  subgraph Observability
+    PT -->|push| LK[(Loki)]
+    PR -->|scrape / alert rules| GF[Grafana]
+    LK -->|query| GF[Grafana]
+  end
+
+  subgraph Infrastructure["Infrastructure (Terraform, AWS)"]
+    ECS[ECS Fargate: backend/frontend] --> RDS[(RDS PostgreSQL)]
+    ECS --> S3[(S3 backups)]
+    SNS[SNS + CloudWatch alerts] -.-> B
+  end
+
+  B -.deployed on.-> ECS
 ```
 
 ### Architecture Summary
 
 - Frontend: React + Next.js 14 with Tailwind CSS.
+- Observability: backend metrics are scraped by Prometheus (alert rules in [`observability/prometheus-rules.yml`](observability/prometheus-rules.yml)); container logs are shipped by Promtail to Loki; Grafana visualizes both. See [docs/observability.md](docs/observability.md).
+- Infrastructure: Terraform ([`terraform/`](terraform/) and [`infrastructure/`](infrastructure/)) provisions AWS resources (ECS Fargate, RDS, S3, VPC, backups, SNS/CloudWatch alerting) for staging/production.
 - Backend: Node.js + TypeScript + Express.
 - Smart contract: Rust using the Soroban SDK.
 - Infrastructure: Docker, Docker Compose, local SQLite database.
@@ -190,7 +208,7 @@ Scores are reported as a GitHub Actions step summary.
 
 Dependencies are scanned automatically:
 
-- **Dependabot** monitors `backend/` and `frontend/` npm packages weekly. PRs are labelled `dependencies` and `security`.
+- **Dependabot** monitors `backend/`, `frontend/`, and `contracts/stellarkraal/` packages weekly. PRs are labelled `dependencies` and `security`. See [docs/guides/dependabot.md](docs/guides/dependabot.md) for the triage/merge process.
 - **npm audit** runs every Monday via the [`npm-audit`](.github/workflows/npm-audit.yml) workflow. The workflow fails if any `high` or `critical` severity vulnerability is found.
 
 To run an audit locally:
@@ -199,6 +217,8 @@ To run an audit locally:
 cd backend && npm audit --audit-level=high
 cd frontend && npm audit --audit-level=high
 ```
+
+To report a security vulnerability, please read [SECURITY.md](SECURITY.md) for our full vulnerability disclosure policy, reporting instructions, response timeline, and safe harbour statement.
 
 ## Development Scripts
 
@@ -218,16 +238,17 @@ npm run test:frontend
 | [Liquidation Mechanism](docs/protocol/liquidation.md) | Health factor formula, liquidation threshold, partial liquidation examples |
 | [Smart Contract Interface](docs/contracts/stellarkraal-interface.md) | Soroban contract public API, error codes, state changes, and CLI invocation guide |
 | [Contract API Docs](https://teslims2.github.io/StellarKraal-/contracts/) | Auto-generated `cargo doc` reference published to GitHub Pages |
-| [Terraform Infrastructure Guide](docs/infrastructure-terraform.md) | Full guide to the Terraform modules: networking, ALB, compute, RDS, and Redis |
-| [JWT Authentication Flow](docs/auth-flow.md) | Challenge-response wallet auth, token refresh flow, JWT middleware, and API keys |
-| [Testing Strategy](docs/testing-strategy.md) | Unit, integration, smart contract, and E2E test layers; CI configuration |
-| [Appraisal Cache](docs/appraisal-cache.md) | Caching strategy, TTL/staleness model, and invalidation conditions |
+| [API Error Code Reference](docs/api-error-codes.md) | All HTTP status codes, application error codes, and contract error codes with descriptions |
+| [CORS Configuration](docs/cors-configuration.md) | Allowed origins strategy, per-environment setup, and troubleshooting |
+| [Docker Compose Services](docs/docker-compose-services.md) | Service dependencies, startup order, health checks, and volumes |
+| [Performance Tuning Guide](docs/performance-tuning.md) | Environment variables, DB tuning, caching, and profiling guidance |
 
 ## User Guides
 
 | Guide | Description |
 |---|---|
 | [Register Livestock as Collateral](docs/guides/register-collateral.md) | Step-by-step guide (English + Kiswahili) for registering animals and requesting a loan |
+| [API Integration Tutorial](docs/guides/api-integration-tutorial.md) | How an external app can register collateral, request a loan, and monitor loan status via webhooks |
 
 See also: [Help & Guides page](/help) in the app.
 
@@ -254,6 +275,7 @@ Key design decisions are documented as ADRs in [`docs/adr/`](docs/adr/).
 | [ADR-005](docs/adr/ADR-005-collateral-appraisal-model.md) | Off-chain collateral appraisal model | Accepted |
 | [ADR-006](docs/adr/ADR-006-oracle-design.md) | Multi-oracle median aggregation for price feeds | Accepted |
 | [ADR-007](docs/adr/ADR-007-oracle-twap.md) | Time-Weighted Average Price (TWAP) for liquidation price feeds | Accepted |
+| [ADR-009](docs/adr/ADR-009-api-v2-design.md) | API v2 Design Direction (REST vs GraphQL vs tRPC) | Proposed |
 
 To add a new ADR, copy [`docs/adr/template.md`](docs/adr/template.md), increment the number, fill in all sections, and add a row to the table above.
 

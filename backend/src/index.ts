@@ -32,6 +32,8 @@ import {
   updateCollateral,
   insertAuditEntry,
   listAuditEntries,
+  getProfile,
+  updateProfile,
   type TransactionType,
   type CollateralStatus,
   type TransactionStatus,
@@ -85,6 +87,7 @@ import {
 import rpcClient from './utils/rpcClient';
 import { mapSorobanError } from './utils/sorobanErrors';
 import { registerWebhook, getWebhooks, getDeliveryLogs, fireWebhooks } from './webhooks';
+import { etagMiddleware } from './utils/etag';
 import { scheduleHealthFactorJob, runHealthFactorJob } from './jobs/healthFactorJob';
 import { scheduleRepaymentReminderJob } from './jobs/repaymentReminderJob';
 import { compressionMiddleware } from './middleware/compression';
@@ -1056,6 +1059,63 @@ app.get(
   })
 );
 
+/**
+ * GET /api/v1/admin/stats — platform-wide statistics.
+ *
+ * Returns aggregated platform metrics: total users, loans, collateral, TVL, and active loan count.
+ * Admin-only endpoint with 60-second response cache to avoid expensive aggregations.
+ *
+ * Response: { totalUsers, totalLoans, totalCollateral, totalValueLocked, activeLoansCount }
+ */
+app.get(
+  '/api/v1/admin/stats',
+  createResponseCacheMiddleware(60 * 1000), // 60s cache
+  asyncHandler(async (req: Request, res: Response) => {
+    // Admin-only: require role === "admin" in JWT payload
+    const user = (req as any).user as { publicKey?: string; role?: string } | undefined;
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: admin role required' });
+    }
+
+    // Get all collaterals (non-deleted)
+    const collateralsResult = listCollateral();
+    const collaterals = collateralsResult.data;
+
+    // Get all loans (non-deleted)
+    const loansResult = listLoans();
+    const loans = loansResult.data;
+
+    // Get active loans
+    const activeLoans = listActiveLoans();
+
+    // Aggregate stats
+    const totalCollateral = collateralsResult.total;
+    const totalLoans = loansResult.total;
+    const activeLoansCount = activeLoans.length;
+
+    // Calculate total value locked (sum of collateral appraised values in XLM)
+    const totalValueLockedStroops = collaterals.reduce(
+      (sum, c) => sum + (c.appraised_value || 0),
+      0
+    );
+    const totalValueLocked = parseFloat((totalValueLockedStroops / 1e7).toFixed(2));
+
+    // Count unique users (owners of collaterals or borrowers of loans)
+    const uniqueUsers = new Set<string>();
+    collaterals.forEach((c) => uniqueUsers.add(c.owner));
+    loans.forEach((l) => uniqueUsers.add(l.borrower));
+    const totalUsers = uniqueUsers.size;
+
+    res.json({
+      totalUsers,
+      totalLoans,
+      totalCollateral,
+      totalValueLocked,
+      activeLoansCount,
+    });
+  })
+);
+
 // POST /api/v1/admin/liquidation-check — manually trigger health factor job (#615)
 app.post(
   '/api/v1/admin/liquidation-check',
@@ -1253,6 +1313,7 @@ app.patch(
 // GET /api/v1/collateral — list collateral with optional filters and pagination
 app.get(
   '/api/v1/collateral',
+  etagMiddleware,
   asyncHandler(async (req: Request, res: Response) => {
     const page = req.query.page !== undefined ? Number(req.query.page) : 1;
     const pageSize = req.query.pageSize !== undefined ? Number(req.query.pageSize) : 20;
@@ -1471,6 +1532,32 @@ app.post(
   })
 );
 
+// GET /api/v1/loans — paginated loan listing with ETag support
+app.get(
+  '/api/v1/loans',
+  etagMiddleware,
+  readLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const page = req.query.page !== undefined ? Number(req.query.page) : 1;
+    const pageSize = req.query.pageSize !== undefined ? Number(req.query.pageSize) : 20;
+    if (!Number.isInteger(page) || page < 1) {
+      return res.status(400).json({ error: 'page must be a positive integer' });
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      return res.status(400).json({ error: 'pageSize must be between 1 and 100' });
+    }
+    const borrowerAddress = typeof req.query.borrower === 'string' ? req.query.borrower : undefined;
+    const result = listLoans({ page, limit: pageSize, borrowerAddress });
+    res.json({
+      data: result.data,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      pageSize: result.limit,
+    });
+  })
+);
+
 // GET /api/v1/loans/summary — borrower-scoped portfolio summary
 app.get(
   '/api/v1/loans/summary',
@@ -1640,6 +1727,63 @@ app.put(
     });
 
     res.json(updated);
+  })
+);
+
+// ── User Profile ──────────────────────────────────────────────────────────────
+
+/**
+ * PATCH /api/v1/profile
+ *
+ * Update the authenticated user's profile.
+ * Accepts partial updates for displayName and notificationPreferences.
+ *
+ * @param displayName - Optional user display name (2-40 characters)
+ * @param notificationPreferences - Optional notification preferences object
+ * @returns Updated profile object
+ */
+app.patch(
+  '/api/v1/profile',
+  timeoutMiddleware(parseInt(config.TIMEOUT_WRITE_MS, 10)),
+  asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as any).user as { publicKey?: string } | undefined;
+    if (!user?.publicKey) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const updateSchema = z.object({
+      displayName: z.string().min(2, 'displayName must be at least 2 characters').max(40, 'displayName must be at most 40 characters').optional(),
+      notificationPreferences: z.object({
+        loanApproved: z.boolean().optional(),
+        loanRepaid: z.boolean().optional(),
+        liquidationWarning: z.boolean().optional(),
+        loanDisbursed: z.boolean().optional(),
+      }).optional(),
+    });
+
+    const validation = updateSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
+    }
+
+    const updates = validation.data;
+    const profile = updateProfile(user.publicKey, updates);
+
+    insertAuditEntry({
+      userId: user.publicKey,
+      action: 'profile.update',
+      resource: 'profile',
+      resourceId: user.publicKey,
+      requestBody: redact(updates),
+      ip: req.ip,
+    });
+
+    auditLogger.info('profile.update', {
+      requestId: (req as any).requestId,
+      userId: user.publicKey,
+    });
+
+    res.json(profile);
   })
 );
 
