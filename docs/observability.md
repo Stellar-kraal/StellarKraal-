@@ -77,14 +77,4 @@ Key environment changes:
 
 - Prometheus metrics: [`docs/protocol/liquidation.md`](protocol/liquidation.md) *(see also `GET /metrics` endpoint)*
 - Backend logger: [`backend/src/utils/logger.ts`](../backend/src/utils/logger.ts)
-
-## Runbooks
-
-| Runbook | Trigger |
-|---|---|
-| [RPC Node Unreachable](runbooks/rpc-failure.md) | `RPCConnectionFailure` alert, RPC error logs |
-| [Database Connection Failure](runbooks/db-failure.md) | `DatabaseConnectionError` alert, SQLite errors |
-| [Contract Invocation Failure](runbooks/contract-invocation-failure.md) | Contract error codes (#1–#19), 502 responses on loan operations |
-| [Liquidation Failure](runbooks/liquidation-failure.md) | `LiquidationFailed` alert, health-factor job errors |
-| [High Error Rate](runbooks/high-error-rate.md) | `BackendHigh5xxRate` alert |
-| [Deployment Rollback](runbooks/deployment-rollback.md) | Bad deploy, increased error rate post-deploy |
+- Alerting configuration: [`docs/guides/alerting.md`](guides/alerting.md) — how alert rules are structured and how to add new ones
