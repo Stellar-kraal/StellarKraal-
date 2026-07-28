@@ -7,6 +7,7 @@ import { EmptyTransactionsIllustration } from './illustrations';
 import Card from '@/components/Card';
 import Pagination from '@/components/Pagination';
 import { usePagination } from '@/hooks/usePagination';
+import { useScrollPosition } from '@/hooks/useScrollPosition';
 
 interface Transaction {
   id: number;
@@ -18,6 +19,7 @@ interface Transaction {
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function TransactionHistory({ walletAddress }: { walletAddress: string }) {
+  useScrollPosition();
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loaded, setLoaded] = useState(false);
