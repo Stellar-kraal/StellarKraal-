@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
 import WalletConnect from "@/components/WalletConnect";
@@ -12,17 +12,11 @@ import TransactionHistory from "@/components/TransactionHistory";
 import SkeletonHealthDashboard from "@/components/SkeletonHealthDashboard";
 import HelpMenu from "@/components/HelpMenu";
 import OnboardingModal from "@/components/OnboardingModal";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { useHealthFactor } from "@/hooks/useHealthFactor";
 import { useOnboarding } from "@/hooks/useOnboarding";
 
-type TabName = "overview" | "loans" | "collateral" | "transactions";
-
-const TABS: { id: TabName; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "loans", label: "Loans" },
-  { id: "collateral", label: "Collateral" },
-  { id: "transactions", label: "Transactions" },
-];
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -31,6 +25,40 @@ export default function DashboardClient() {
   const [activeTab, setActiveTab] = useState<TabName>("overview");
   const { showOnboarding, openOnboarding, closeOnboarding } = useOnboarding();
   const { healthFactor, loading: isHealthLoading, refresh: refreshHealth } = useHealthFactor(loanId);
+  
+  // Onboarding checklist state
+  const [hasCollateral, setHasCollateral] = useState(false);
+  const [hasLoan, setHasLoan] = useState(false);
+
+  // Detect if user has collateral
+  useEffect(() => {
+    if (!wallet) {
+      setHasCollateral(false);
+      return;
+    }
+    fetch(`${API}/api/collateral?owner=${wallet}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((body) => {
+        const items = Array.isArray(body?.data) ? body.data : [];
+        setHasCollateral(items.length > 0);
+      })
+      .catch(() => setHasCollateral(false));
+  }, [wallet]);
+
+  // Detect if user has loan
+  useEffect(() => {
+    if (!wallet) {
+      setHasLoan(false);
+      return;
+    }
+    fetch(`${API}/api/loans?borrower=${wallet}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((body) => {
+        const items = Array.isArray(body?.data) ? body.data : [];
+        setHasLoan(items.length > 0);
+      })
+      .catch(() => setHasLoan(false));
+  }, [wallet]);
 
   // Read hash from URL on mount and when it changes
   useEffect(() => {
@@ -78,14 +106,38 @@ export default function DashboardClient() {
       <WalletConnect onConnect={setWallet} />
       {wallet && (
         <>
-          {/* Tab Navigation */}
-          <div className="mb-6 border-b border-brown/10">
-            <div
-              role="tablist"
-              className="flex gap-1"
-              aria-label="Dashboard sections"
-            >
-              {TABS.map((tab, index) => (
+          <OnboardingChecklist
+            hasWallet={!!wallet}
+            hasCollateral={hasCollateral}
+            hasLoan={hasLoan}
+          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <CollateralCard walletAddress={wallet} />
+            <LoanRepaymentCalculator
+              onProceed={handleProceedToRepay}
+              onApplyForLoan={() => router.push("/borrow")}
+            />
+          </div>
+          <div className="mt-4">
+            <RepayPanel walletAddress={wallet} />
+          </div>
+          <div className="mt-4">
+            <TransactionHistory walletAddress={wallet} />
+          </div>
+          {isHealthLoading ? (
+            <SkeletonHealthDashboard />
+          ) : (
+            <div className="mt-8 rounded-2xl bg-white p-6 shadow">
+              <h2 className="mb-3 text-xl font-semibold text-brown">
+                <GlossaryTerm termKey="healthFactor" />
+              </h2>
+              <div className="flex items-center gap-2">
+                <input
+                  className="flex-1 rounded-lg border border-brown/30 px-3 py-2"
+                  placeholder="Loan ID"
+                  value={loanId}
+                  onChange={(e) => setLoanId(e.target.value)}
+                />
                 <button
                   key={tab.id}
                   role="tab"
