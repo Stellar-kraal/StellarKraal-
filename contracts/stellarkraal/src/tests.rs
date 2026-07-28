@@ -2047,7 +2047,7 @@ fn test_health_factor_fresh_price() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 1800;
@@ -2081,7 +2081,7 @@ fn test_health_factor_fresh_price() {
     let borrower = Address::generate(&env);
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 1800;
@@ -2100,7 +2100,7 @@ fn test_health_factor_threshold_boundary() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 3600;
@@ -2119,7 +2119,7 @@ fn test_health_factor_stale_price() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 3601;
@@ -2959,7 +2959,7 @@ fn test_hf_history_grows_with_each_call() {
     let borrower = Address::generate(&env);
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     // Initially history is empty.
     let loan = client.get_loan(&loan_id);
@@ -2985,7 +2985,7 @@ fn test_hf_history_capped_at_5() {
     let borrower = Address::generate(&env);
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     // Call health_factor 7 times; history must stay at 5.
     for _ in 0..7 {
@@ -3004,7 +3004,7 @@ fn test_hf_history_ordering() {
     let borrower = Address::generate(&env);
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     client.health_factor(&loan_id);
     let loan = client.get_loan(&loan_id);
@@ -3029,7 +3029,7 @@ fn test_get_loan_returns_hf_history() {
     let borrower = Address::generate(&env);
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     client.health_factor(&loan_id);
     client.health_factor(&loan_id);
