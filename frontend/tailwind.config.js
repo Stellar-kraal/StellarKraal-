@@ -4,9 +4,15 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
-      // ── Safe area support for iOS home indicator ──────────────────────────────
-      padding: {
-        safe: 'max(1rem, env(safe-area-inset-bottom))',
+      // ── Keyframe animations ──────────────────────────────────────────────────
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'scale(0.6)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+      },
+      animation: {
+        fadeIn: 'fadeIn 0.6s ease-out both',
       },
       // ── Typography scale (#298) ──────────────────────────────────────────────
       fontSize: {
