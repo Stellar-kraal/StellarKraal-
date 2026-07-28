@@ -1994,7 +1994,7 @@ fn test_get_loan_count_one() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     client.request_loan(&borrower, &vec![&env, col_id], &500_000, &None);
-    client.request_loan(&borrower, &vec![&env, col_id], &500_000);
+    client.request_loan(&borrower, &vec![&env, col_id], &500_000, &None);
 
     assert_eq!(client.get_loan_count(&borrower), 1);
 }
@@ -2329,7 +2329,7 @@ fn test_get_liquidation_threshold_after_update() {
     // collateral worth 100_000_000 → LTV 60% → max_loan = 60_000_000 > MIN_LOAN
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
     // borrow exactly MIN_LOAN = 10_000_000
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &10_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &10_000_000, &None);
     assert!(loan_id > 0);
 }
 
@@ -2346,7 +2346,7 @@ fn test_request_loan_at_max_succeeds() {
     let borrower = Address::generate(&env);
     // collateral worth 100_000_000 → LTV 60% → max = 60_000_000 >= MAX_LOAN 50_000_000
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &50_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &50_000_000, &None);
     assert!(loan_id > 0);
 }
 
@@ -2365,7 +2365,7 @@ fn test_request_loan_above_max_fails() {
     // enough collateral to pass LTV check
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
     // request 21_000_000 — above MAX_LOAN
-    client.request_loan(&borrower, &vec![&env, col_id], &21_000_000);
+    client.request_loan(&borrower, &vec![&env, col_id], &21_000_000, &None);
 }
 
 // ── Issue #699: migrate_storage tests ─────────────────────────────────────
@@ -2694,7 +2694,7 @@ fn test_token_balance_origination_fee_sent_to_treasury() {
     let principal = 1_000_000i128;
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &2_000_000i128);
-    client.request_loan(&borrower, &vec![&env, col_id], &principal);
+    client.request_loan(&borrower, &vec![&env, col_id], &principal, &None);
 
     let expected_fee = principal * DEFAULT_ORIG_FEE_BPS / BPS; // 5_000
     assert_eq!(
