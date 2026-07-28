@@ -101,7 +101,10 @@ stellar contract build
 npm run test:frontend   # Jest component tests
 npm run test:backend    # Backend unit + integration tests
 npm run test:contract   # Soroban contract tests
+npm run test:e2e        # Playwright E2E tests
 ```
+
+For detailed instructions on running E2E tests locally, see [E2E Testing Guide](docs/testing/e2e-tests.md).
 
 ## Managing Dependencies
 
