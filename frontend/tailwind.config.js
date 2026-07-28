@@ -4,6 +4,10 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      // ── Safe area support for iOS home indicator ──────────────────────────────
+      padding: {
+        safe: 'max(1rem, env(safe-area-inset-bottom))',
+      },
       // ── Typography scale (#298) ──────────────────────────────────────────────
       fontSize: {
         "heading-1": ["2.25rem", { lineHeight: "2.5rem", fontWeight: "700" }],
