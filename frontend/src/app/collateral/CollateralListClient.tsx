@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import SearchFilterBar from "@/components/SearchFilterBar";
 import HighlightText from "@/components/HighlightText";
 import PageTransition from "@/components/PageTransition";
+import { useScrollPosition } from "@/hooks/useScrollPosition";
 
 interface Collateral {
   id: string;
@@ -85,6 +86,8 @@ function CollateralListContent() {
 }
 
 export default function CollateralListClient() {
+  useScrollPosition();
+
   return (
     <PageTransition>
       <main className="max-w-3xl mx-auto px-4 py-10">

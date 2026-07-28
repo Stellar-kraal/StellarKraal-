@@ -32,21 +32,65 @@ flowchart LR
   end
 
   subgraph Backend
-    B -->|SQL| DB[(SQLite database)]
+    B -->|SQL| DB[(SQLite / PostgreSQL)]
     B -->|RPC| S[Soroban smart contract]
+    B -->|logs, json-file driver| PT[Promtail]
+    B -->|/metrics| PR[Prometheus]
   end
 
   subgraph Contracts
     S -->|WASM| W[(Stellar contract)]
   end
+
+  subgraph Observability
+    PT -->|push| LK[(Loki)]
+    PR -->|scrape / alert rules| GF[Grafana]
+    LK -->|query| GF[Grafana]
+  end
+
+  subgraph Infrastructure["Infrastructure (Terraform, AWS)"]
+    ECS[ECS Fargate: backend/frontend] --> RDS[(RDS PostgreSQL)]
+    ECS --> S3[(S3 backups)]
+    SNS[SNS + CloudWatch alerts] -.-> B
+  end
+
+  B -.deployed on.-> ECS
 ```
 
 ### Architecture Summary
 
 - Frontend: React + Next.js 14 with Tailwind CSS.
+- Observability: backend metrics are scraped by Prometheus (alert rules in [`observability/prometheus-rules.yml`](observability/prometheus-rules.yml)); container logs are shipped by Promtail to Loki; Grafana visualizes both. See [docs/observability.md](docs/observability.md).
+- Infrastructure: Terraform ([`terraform/`](terraform/) and [`infrastructure/`](infrastructure/)) provisions AWS resources (ECS Fargate, RDS, S3, VPC, backups, SNS/CloudWatch alerting) for staging/production.
 - Backend: Node.js + TypeScript + Express.
 - Smart contract: Rust using the Soroban SDK.
 - Infrastructure: Docker, Docker Compose, local SQLite database.
+
+### Loan State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : submit loan
+
+    Pending --> Active : request_loan()
+
+    Active --> at_risk : HF drops
+
+    at_risk --> Active : HF recovers
+
+    Active --> Repaid : repay_loan()
+
+    Active --> Liquidated : liquidate()
+
+    at_risk --> Repaid : repay_loan()
+
+    at_risk --> Liquidated : liquidate()
+
+    Repaid --> [*]
+    Liquidated --> [*]
+```
+
+Full documentation: [Loan State Machine](docs/protocol/loan-state-machine.md)
 
 ## Local Development
 
@@ -200,6 +244,8 @@ cd backend && npm audit --audit-level=high
 cd frontend && npm audit --audit-level=high
 ```
 
+To report a security vulnerability, please read [SECURITY.md](SECURITY.md) for our full vulnerability disclosure policy, reporting instructions, response timeline, and safe harbour statement.
+
 ## Development Scripts
 
 Run the following from the repository root:
@@ -215,9 +261,13 @@ npm run test:frontend
 | Document | Description |
 |---|---|
 | [Loan State Machine](docs/protocol/loan-state-machine.md) | All loan states, valid transitions, triggering events, and on-chain event mapping |
+| [API Quickstart](docs/guides/api-quickstart.md) | Base URL, auth flow, and common `/api/v1` operations |
+| [Rate limits](docs/guides/rate-limits.md) | Global, auth, read, and write tiers; headers and retry behavior |
 | [Liquidation Mechanism](docs/protocol/liquidation.md) | Health factor formula, liquidation threshold, partial liquidation examples |
 | [Smart Contract Interface](docs/contracts/stellarkraal-interface.md) | Soroban contract public API, error codes, state changes, and CLI invocation guide |
+| [Contract Event Listener](docs/guides/contract-event-listener.md) | Polling interval, ledger cursor tracking, event handling pipeline, and structured logging |
 | [Contract API Docs](https://teslims2.github.io/StellarKraal-/contracts/) | Auto-generated `cargo doc` reference published to GitHub Pages |
+| [Observability Stack](docs/observability.md) | Prometheus metrics, Loki/Promtail logs, Grafana dashboards, alert rules, and how to extend each |
 | [API Error Code Reference](docs/api-error-codes.md) | All HTTP status codes, application error codes, and contract error codes with descriptions |
 | [CORS Configuration](docs/cors-configuration.md) | Allowed origins strategy, per-environment setup, and troubleshooting |
 | [Docker Compose Services](docs/docker-compose-services.md) | Service dependencies, startup order, health checks, and volumes |
@@ -228,6 +278,7 @@ npm run test:frontend
 | Guide | Description |
 |---|---|
 | [Register Livestock as Collateral](docs/guides/register-collateral.md) | Step-by-step guide (English + Kiswahili) for registering animals and requesting a loan |
+| [API Integration Tutorial](docs/guides/api-integration-tutorial.md) | How an external app can register collateral, request a loan, and monitor loan status via webhooks |
 
 See also: [Help & Guides page](/help) in the app.
 
@@ -240,6 +291,7 @@ Step-by-step guides for borrowers are in [`docs/guides/`](docs/guides/).
 | [How to Request a Loan](docs/guides/request-loan.md) | Walks through all four wizard steps: Collateral, Amount, Review, Confirm. Explains LTV, health factor, and origination fee in plain language. |
 | [How to Repay a Loan](docs/guides/repay-loan.md) | Covers partial vs full repayment, how repayment improves the health factor, repayment deadlines, and a repayment calculator example. |
 | [Understanding Liquidation](docs/guides/understanding-liquidation.md) | Borrower-facing explainer of the health factor, when liquidation occurs, worked numeric example, and how to avoid it. |
+| [Accessibility Guide](docs/guides/accessibility.md) | ARIA usage patterns, testing commands, common mistakes, and pre-PR checklist for accessible components. |
 
 ## Architecture Decision Records
 
@@ -254,6 +306,7 @@ Key design decisions are documented as ADRs in [`docs/adr/`](docs/adr/).
 | [ADR-005](docs/adr/ADR-005-collateral-appraisal-model.md) | Off-chain collateral appraisal model | Accepted |
 | [ADR-006](docs/adr/ADR-006-oracle-design.md) | Multi-oracle median aggregation for price feeds | Accepted |
 | [ADR-007](docs/adr/ADR-007-oracle-twap.md) | Time-Weighted Average Price (TWAP) for liquidation price feeds | Accepted |
+| [ADR-008](docs/adr/ADR-008-webhooks.md) | Webhook-based event delivery for loan lifecycle notifications | Accepted |
 | [ADR-009](docs/adr/ADR-009-api-v2-design.md) | API v2 Design Direction (REST vs GraphQL vs tRPC) | Proposed |
 
 To add a new ADR, copy [`docs/adr/template.md`](docs/adr/template.md), increment the number, fill in all sections, and add a row to the table above.
