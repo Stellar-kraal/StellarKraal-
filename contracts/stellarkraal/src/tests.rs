@@ -2562,7 +2562,7 @@ fn test_token_balance_request_loan_transfers_disbursement_and_fee() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let principal = 600_000i128;
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal, &None);
 
     // origination_fee = principal * orig_fee_bps / 10_000
     let fee = principal * DEFAULT_ORIG_FEE_BPS / BPS;
@@ -2617,7 +2617,7 @@ fn test_token_balance_repay_loan_transfers_from_borrower_to_contract() {
     let fee = principal * DEFAULT_ORIG_FEE_BPS / BPS;
     let disbursement = principal - fee;
 
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal, &None);
 
     // Record balances after disbursement.
     let borrower_after_disburse = token_balance(&env, &token, &borrower);
@@ -2668,7 +2668,7 @@ fn test_token_balance_full_repay_closes_loan() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let principal = 600_000i128;
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal, &None);
 
     // Repay the full outstanding amount.
     client.repay_loan(&borrower, &loan_id, &principal);
@@ -2722,7 +2722,7 @@ fn test_token_balance_liquidation_reward_sent_to_liquidator() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let principal = 600_000i128;
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal, &None);
 
     // Make the loan liquidatable: drive outstanding above collateral * liq_thr.
     // With collateral = 1_000_000 and liq_thr = 8000 bps, outstanding must be
@@ -2790,7 +2790,7 @@ fn test_token_balance_full_liquidation_marks_loan_liquidated() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &500_000i128);
     let principal = 300_000i128;
-    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &principal, &None);
 
     // Make loan unhealthy.
     env.as_contract(&cid, || {
