@@ -451,7 +451,6 @@ documentation update.
 
 ## Related
 
-- [Troubleshooting](troubleshooting.md) — common runtime issues
-- [Infrastructure](infrastructure.md) — deployment topology
-- [Environment Variables](guides/environment-variables.md) — all env vars
-- [Runbooks](runbooks/) — alert response procedures
+- Prometheus metrics: [`docs/protocol/liquidation.md`](protocol/liquidation.md) *(see also `GET /metrics` endpoint)*
+- Backend logger: [`backend/src/utils/logger.ts`](../backend/src/utils/logger.ts)
+- Alerting configuration: [`docs/guides/alerting.md`](guides/alerting.md) — how alert rules are structured and how to add new ones
