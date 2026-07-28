@@ -1878,6 +1878,25 @@ fn test_set_ltv_non_admin_fails() {
     client.set_ltv(&attacker, &5000u32);
 }
 
+// ── get_ltv ───────────────────────────────────────────────────────────
+#[test]
+fn test_get_ltv_returns_initialized_value() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    // initialize() sets ltv to 6000 bps (60%)
+    assert_eq!(client.get_ltv(), 6000u32);
+}
+
+#[test]
+fn test_get_ltv_after_update() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    client.set_ltv(&admin, &7000u32);
+    assert_eq!(client.get_ltv(), 7000u32);
+}
+
 // ── proptests ─────────────────────────────────────────────────────────
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]

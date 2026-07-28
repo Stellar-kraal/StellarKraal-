@@ -1387,6 +1387,15 @@ impl StellarKraal {
         Ok((min_loan, max_loan))
     }
 
+    // ── get_ltv ──────────────────────────────────────────────────────────
+    /// Return the current loan-to-value ratio in basis points.
+    ///
+    /// Read-only — no authentication required.
+    pub fn get_ltv(env: Env) -> Result<u32, Error> {
+        Self::assert_initialized(&env)?;
+        Ok(env.storage().instance().get(&LTV).unwrap())
+    }
+
     // ── set_ltv ──────────────────────────────────────────────────────────
     /// Update the loan-to-value ratio (1000–9000 bps).
     pub fn set_ltv(env: Env, admin: Address, ltv_bps: u32) -> Result<(), Error> {
