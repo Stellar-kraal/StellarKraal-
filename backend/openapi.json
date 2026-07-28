@@ -391,13 +391,18 @@
       "post": {
         "tags": ["loan"],
         "summary": "Request a new loan",
-        "description": "Builds an unsigned Soroban transaction to create a loan backed by the specified collateral. The client must sign the returned XDR and submit it to the Stellar network.",
+        "description": "Builds an unsigned Soroban transaction to request a new loan against registered collateral. Consider supplying an `Idempotency-Key` header on retries to avoid accidentally submitting duplicate loan requests.",
         "operationId": "requestLoan",
-        "requestBody": {
-          "required": true,
-          "description": "Loan request details including borrower wallet, collateral ID(s), and requested amount.",
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoanRequestBody" } } }
-        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Optional client-generated UUID v4 key. If supplied, the server stores the response for 24 hours and returns the original on replay with `X-Idempotent-Replayed: true`."
+          }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoanRequestBody" } } } },
         "responses": {
           "200": { "description": "Unsigned XDR transaction", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/XdrResponse" } } } },
           "400": { "$ref": "#/components/responses/ValidationError" },
@@ -699,91 +704,16 @@
         }
       }
     },
-    "/admin/users": {
+    "/admin/stats": {
       "get": {
         "tags": ["admin"],
-        "summary": "List borrowers",
-        "description": "Returns a deduplicated list of borrower wallet addresses derived from existing loan records. Requires admin privileges.",
-        "operationId": "listUsers",
+        "summary": "Get platform-wide statistics",
+        "description": "Returns aggregated platform metrics: total users, loans, collateral, TVL, and active loan count. Admin role required. Response cached for 60 seconds.",
+        "operationId": "getAdminStats",
         "responses": {
-          "200": {
-            "description": "Borrower list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "description": "Paginated borrower list.",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "description": "Array of borrower objects.",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "borrower": { "type": "string", "description": "Stellar public key of the borrower." }
-                        }
-                      }
-                    },
-                    "total": { "type": "integer", "description": "Total number of unique borrowers." }
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
-        }
-      }
-    },
-    "/admin/moderation-queue": {
-      "get": {
-        "tags": ["admin"],
-        "summary": "Pending-review loans",
-        "description": "Returns loan records with status \"pending\" that are awaiting review. Requires admin privileges.",
-        "operationId": "getModerationQueue",
-        "responses": {
-          "200": {
-            "description": "Pending loans",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "description": "Pending loan queue.",
-                  "properties": {
-                    "data": { "type": "array", "description": "Array of loan records with pending status.", "items": { "type": "object" } },
-                    "total": { "type": "integer", "description": "Total number of pending loans." }
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
-        }
-      }
-    },
-    "/admin/statistics": {
-      "get": {
-        "tags": ["admin"],
-        "summary": "Aggregate platform statistics",
-        "description": "Returns aggregate statistics including total loan count, total loan amount, and breakdown by loan status. Requires admin privileges.",
-        "operationId": "getStatistics",
-        "responses": {
-          "200": {
-            "description": "Platform statistics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "description": "Aggregate platform statistics.",
-                  "properties": {
-                    "totalLoans": { "type": "integer", "description": "Total number of loan records." },
-                    "totalAmount": { "type": "integer", "description": "Sum of all loan amounts in token base units." },
-                    "byStatus": { "type": "object", "description": "Loan count grouped by status (e.g. pending, confirmed, failed).", "additionalProperties": { "type": "integer" } }
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "200": { "description": "Platform statistics", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminStats" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -1228,6 +1158,18 @@
           "restored": { "type": "boolean", "description": "Always true on successful restore.", "example": true },
           "id": { "type": "string", "description": "ID of the record that was restored." }
         }
+      },
+      "AdminStats": {
+        "type": "object",
+        "description": "Platform-wide statistics aggregated from database",
+        "required": ["totalUsers", "totalLoans", "totalCollateral", "totalValueLocked", "activeLoansCount"],
+        "properties": {
+          "totalUsers": { "type": "integer", "description": "Count of unique users (collateral owners + borrowers)", "example": 42 },
+          "totalLoans": { "type": "integer", "description": "Total number of loans (all statuses)", "example": 58 },
+          "totalCollateral": { "type": "integer", "description": "Total number of collateral items registered", "example": 123 },
+          "totalValueLocked": { "type": "number", "description": "Sum of all collateral appraised values in XLM", "example": 1500.5 },
+          "activeLoansCount": { "type": "integer", "description": "Count of loans with status 'active' or 'at_risk'", "example": 28 }
+        }
       }
     },
     "headers": {
@@ -1276,6 +1218,10 @@
             }
           }
         }
+      },
+      "Forbidden": {
+        "description": "Access denied — insufficient permissions",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
       },
       "NotFound": {
         "description": "Resource not found",
