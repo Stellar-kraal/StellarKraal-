@@ -2919,6 +2919,58 @@ fn test_pause_auto_expiry_no_lifted_event() {
     assert_eq!(activated_count, 1, "exactly one pause_activated event expected");
 }
 
+// ── is_paused_with_expiry (issue #856) ────────────────────────────────
+#[test]
+fn test_is_paused_with_expiry_not_paused() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let status = client.is_paused_with_expiry();
+    assert!(!status.is_paused, "contract should not be paused initially");
+    assert_eq!(status.expires_at, None, "expires_at should be None when not paused");
+}
+
+#[test]
+fn test_is_paused_with_expiry_paused_no_expiry() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // Pause without setting a duration (indefinite pause)
+    client.pause(&admin);
+    let status = client.is_paused_with_expiry();
+    assert!(status.is_paused, "contract should be paused");
+    assert_eq!(status.expires_at, None, "expires_at should be None for indefinite pause");
+}
+
+#[test]
+fn test_is_paused_with_expiry_paused_with_expiry() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // Pause with a duration
+    client.set_pause_duration(&admin, &1000u64);
+    client.pause(&admin);
+    let status = client.is_paused_with_expiry();
+    assert!(status.is_paused, "contract should be paused");
+    assert!(status.expires_at.is_some(), "expires_at should be Some for pause with duration");
+}
+
+#[test]
+fn test_is_paused_with_expiry_after_unpause() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    client.pause(&admin);
+    client.unpause(&admin);
+    let status = client.is_paused_with_expiry();
+    assert!(!status.is_paused, "contract should not be paused after unpause");
+    assert_eq!(status.expires_at, None, "expires_at should be None after unpause");
+}
+
 // ── #709: Store last 5 health factor values per loan ───────────────────
 
 /// health_factor updates hf_history on each call.
