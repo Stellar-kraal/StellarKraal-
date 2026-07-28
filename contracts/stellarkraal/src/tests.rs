@@ -2243,13 +2243,22 @@ fn test_request_loan_below_min_fails() {
 
 #[test]
 fn test_loan_with_deadline_stores_due_ledger() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let borrower = Address::generate(&env);
 
     // register collateral worth 100 000 000 stroops; LTV 60% allows up to 60 000 000
     let _col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
 
-    // Request 1 stroop — below MIN_LOAN of 10_000_000
-    client.request_loan(&borrower, &vec![&env, col_id], &1);
+    // Request 60 000 000 stroops (at LTV)
+    let now = env.ledger().timestamp();
+    let duration = 86_400u64; // 1 day
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &60_000_000i128, &Some(duration));
+    let loan = client.get_loan(&loan_id);
+    let expected = now + duration;
+    assert_eq!(loan.due_ledger, Some(expected), "due_ledger should be now + duration");
 }
 
 /// request_loan at MIN_LOAN must succeed
@@ -3046,7 +3055,7 @@ fn test_remove_last_oracle_blocked_with_active_loan() {
     // Create an active loan.
     let borrower = Address::generate(&env);
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     // Attempt to remove the only oracle — should fail.
     let result = client.try_remove_oracle(&admin, &oracle);
@@ -3068,7 +3077,7 @@ fn test_remove_oracle_allowed_when_other_oracles_remain() {
     // Create an active loan.
     let borrower = Address::generate(&env);
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
-    client.request_loan(&borrower, &vec![&env, col_id], &600_000);
+    client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
 
     // Removing one of two oracles must succeed.
     client.remove_oracle(&admin, &oracle);
