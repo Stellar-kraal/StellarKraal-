@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { PriceChart } from "@/components/PriceChart";
+import DetailSkeleton from "@/components/DetailSkeleton";
 
 interface AppraisalEntry {
   date: string;
@@ -42,11 +43,7 @@ export default function CollateralDetailPage() {
   }, [id]);
 
   if (loading) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10">
-        <p className="text-brown/60">Loading…</p>
-      </main>
-    );
+    return <DetailSkeleton />;
   }
 
   if (notFound || !record) {
