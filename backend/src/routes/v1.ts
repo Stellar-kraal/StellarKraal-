@@ -24,10 +24,11 @@ import {
   batchRegisterCollateral,
   getCollateralById,
 } from '../services/collateralService';
-import { getProfile, updateProfile, insertAuditEntry } from '../db/store';
+import { getProfile, updateProfile, insertAuditEntry, listCollateral, listLoans } from '../db/store';
 import { updateProfileSchema } from '../validators/profile';
 import { validate } from '../middleware/validate';
 import { redact, auditLogger } from '../middleware/audit';
+import { etagMiddleware } from '../utils/etag';
 const APP_VERSION = process.env['npm_package_version'] || '1.0.0';
 const startTime = Date.now();
 
