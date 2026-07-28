@@ -1730,6 +1730,26 @@ fn test_invalid_close_factor_over_max_fails() {
 }
 
 #[test]
+fn test_close_factor_lower_bound_succeeds() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    client.set_close_factor(&admin, &1u32);
+    let cf = client.get_close_factor();
+    assert_eq!(cf, 1u32, "close factor should be 1 bps");
+}
+
+#[test]
+fn test_close_factor_upper_bound_succeeds() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    client.set_close_factor(&admin, &10_000u32);
+    let cf = client.get_close_factor();
+    assert_eq!(cf, 10_000u32, "close factor should be 10000 bps");
+}
+
+#[test]
 #[should_panic(expected = "#13")]
 fn test_register_when_paused_fails() {
     let (env, cid, admin, oracle, token, treasury) = setup();
@@ -2136,15 +2156,20 @@ fn test_set_staleness_threshold_unauthorized() {
 
 #[test]
 fn test_loan_without_deadline_stores_none() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let borrower = Address::generate(&env);
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan = client.get_loan(&loan_id);
+    assert!(loan.due_ledger.is_none(), "expected no deadline");
+}
+
 // ── Issue #700: MIN_LOAN / MAX_LOAN tests ──────────────────────────────────
 
 #[test]
 fn test_get_loan_limits_default() {
-// ── #710: liquidation_threshold_updated event ──────────────────────────
-
-/// set_liquidation_threshold emits old_threshold and new_threshold.
-#[test]
-fn test_set_liquidation_threshold_emits_event_data() {
     let (env, cid, admin, oracle, token, treasury) = setup();
     init(&env, &cid, &admin, &oracle, &token, &treasury);
     let client = StellarKraalClient::new(&env, &cid);
@@ -2154,6 +2179,18 @@ fn test_set_liquidation_threshold_emits_event_data() {
     assert_eq!(min_loan, 10_000_000);
     // default MAX_LOAN = 1_000_000_000_000 stroops (100 000 XLM)
     assert_eq!(max_loan, 1_000_000_000_000);
+}
+
+// ── #710: liquidation_threshold_updated event ──────────────────────────
+
+/// set_liquidation_threshold emits old_threshold and new_threshold.
+#[test]
+fn test_set_liquidation_threshold_emits_event_data() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    client.set_liquidation_threshold(&admin, &7500u32);
 }
 
 #[test]
@@ -2393,7 +2430,9 @@ fn test_set_liquidation_threshold_non_admin_fails() {
     let client = StellarKraalClient::new(&env, &cid);
     let attacker = Address::generate(&env);
 
-    client.migrate_storage(&attacker);
+    client.set_liquidation_threshold(&attacker, &9000u32);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // #712 – Mock-token balance integration tests
 //
@@ -3049,4 +3088,125 @@ fn test_remove_last_oracle_allowed_no_active_loans() {
     client.remove_oracle(&admin, &oracle);
     let remaining = client.get_oracles();
     assert_eq!(remaining.len(), 0, "oracle list should be empty after removal");
+}
+
+// ── set_treasury and get_treasury ──────────────────────────────────────
+
+#[test]
+fn test_set_treasury_succeeds() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let new_treasury = Address::generate(&env);
+    client.set_treasury(&admin, &new_treasury);
+
+    let retrieved = client.get_treasury();
+    assert_eq!(retrieved, new_treasury, "treasury should be updated to new address");
+}
+
+#[test]
+fn test_get_treasury_matches_init_value() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let retrieved = client.get_treasury();
+    assert_eq!(retrieved, treasury, "treasury should match initialized value");
+}
+
+#[test]
+#[should_panic(expected = "#3")]
+fn test_set_treasury_unauthorized_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let non_admin = Address::generate(&env);
+    let new_treasury = Address::generate(&env);
+    client.set_treasury(&non_admin, &new_treasury);
+}
+
+#[test]
+#[should_panic(expected = "#3")]
+fn test_set_treasury_to_zero_address_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let zero_address = Address::from_string(&String::from_str(&env, "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"));
+    client.set_treasury(&admin, &zero_address);
+}
+
+// ── reappraise_collateral ──────────────────────────────────────────────
+
+#[test]
+fn test_reappraise_collateral_by_owner_succeeds() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let owner = Address::generate(&env);
+    let col_id = client.register_livestock(&owner, &symbol_short!("cattle"), &2, &1_000_000i128);
+
+    let new_value = 1_500_000i128;
+    client.reappraise_collateral(&owner, &col_id, &new_value);
+
+    let collateral = client.get_collateral(&col_id);
+    assert_eq!(collateral.appraised_value, new_value, "appraised value should be updated");
+}
+
+#[test]
+fn test_reappraise_collateral_by_oracle_succeeds() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let owner = Address::generate(&env);
+    let col_id = client.register_livestock(&owner, &symbol_short!("cattle"), &2, &1_000_000i128);
+
+    let new_value = 1_200_000i128;
+    client.reappraise_collateral(&oracle, &col_id, &new_value);
+
+    let collateral = client.get_collateral(&col_id);
+    assert_eq!(collateral.appraised_value, new_value, "appraised value should be updated by oracle");
+}
+
+#[test]
+#[should_panic(expected = "#3")]
+fn test_reappraise_collateral_unauthorized_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let owner = Address::generate(&env);
+    let unauthorized = Address::generate(&env);
+    let col_id = client.register_livestock(&owner, &symbol_short!("cattle"), &2, &1_000_000i128);
+
+    let new_value = 1_200_000i128;
+    client.reappraise_collateral(&unauthorized, &col_id, &new_value);
+}
+
+#[test]
+#[should_panic(expected = "#8")]
+fn test_reappraise_collateral_invalid_value_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let owner = Address::generate(&env);
+    let col_id = client.register_livestock(&owner, &symbol_short!("cattle"), &2, &1_000_000i128);
+
+    client.reappraise_collateral(&owner, &col_id, &0i128);
+}
+
+#[test]
+#[should_panic(expected = "#6")]
+fn test_reappraise_nonexistent_collateral_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let owner = Address::generate(&env);
+    client.reappraise_collateral(&owner, &9999u64, &1_500_000i128);
 }
