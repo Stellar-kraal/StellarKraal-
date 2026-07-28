@@ -3,6 +3,7 @@ import { z } from 'zod';
 const envSchema = z.object({
   PORT: z.string().regex(/^\d+$/, 'PORT must be a valid number').default('3001'),
   RPC_URL: z.string().url('RPC_URL must be a valid URL'),
+  HORIZON_URL: z.string().url('HORIZON_URL must be a valid URL').optional(),
   CONTRACT_ID: z.string().min(1, 'CONTRACT_ID is required'),
   NEXT_PUBLIC_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   // Rate limiting (optional with defaults)
