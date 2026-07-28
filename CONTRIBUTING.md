@@ -126,7 +126,7 @@ Before approving a pull request, reviewers should confirm:
 
 - [ ] PR title and commits follow Conventional Commits
 - [ ] Change is scoped to the linked issue (no unrelated diffs)
-- [ ] Frontend changes respect the design token system and pass light/dark mode checks
+- [ ] Frontend changes respect the [design token system](docs/guides/design-tokens.md) and pass light/dark mode checks
 - [ ] Backend changes include input validation at API boundaries
 - [ ] Soroban contract changes preserve backward-compatible ABI, or document a migration path
 - [ ] New/changed logic has corresponding tests (Jest, backend, or `cargo test` as applicable)
