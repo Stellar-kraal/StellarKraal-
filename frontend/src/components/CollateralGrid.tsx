@@ -2,7 +2,7 @@
 import Card from '@/components/Card';
 import SkeletonCollateralCard from '@/components/SkeletonCollateralCard';
 import EmptyState from '@/components/EmptyState';
-import { healthColor } from '@/lib/design-tokens';
+import { healthColor, healthTier, HEALTH_TIER_ICON, HEALTH_TIER_LABEL } from '@/lib/design-tokens';
 
 interface Collateral {
   id: string;
@@ -63,6 +63,7 @@ export default function CollateralGrid({
         const healthFactorBps = collateral.health_factor_bps;
         const showHealthIndicator = healthFactorBps !== undefined && healthFactorBps !== null;
         const healthColorHex = showHealthIndicator ? healthColor(healthFactorBps) : undefined;
+        const tier = showHealthIndicator ? healthTier(healthFactorBps) : undefined;
 
         return (
           <button
@@ -76,19 +77,21 @@ export default function CollateralGrid({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-3xl">{icon}</span>
-                    {showHealthIndicator && (
+                    {showHealthIndicator && tier && (
                       <div
                         className="relative group"
                         role="img"
-                        aria-label={`Loan health: ${(healthFactorBps / 10000).toFixed(2)}`}
+                        aria-label={`Loan health: ${(healthFactorBps / 10000).toFixed(2)}, ${HEALTH_TIER_LABEL[tier]}`}
                       >
                         <div
-                          className="w-3 h-3 rounded-full"
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold leading-none text-white"
                           style={{ backgroundColor: healthColorHex }}
                           aria-hidden="true"
-                        />
+                        >
+                          {HEALTH_TIER_ICON[tier]}
+                        </div>
                         <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-2 bg-brown-900 text-cream-50 text-xs rounded-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
-                          Loan health: {(healthFactorBps / 10000).toFixed(2)}
+                          Loan health: {(healthFactorBps / 10000).toFixed(2)} ({HEALTH_TIER_LABEL[tier]})
                         </div>
                       </div>
                     )}
