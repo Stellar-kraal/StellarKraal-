@@ -91,6 +91,12 @@ const envSchema = z.object({
     }),
   // Audit log directory path
   AUDIT_LOG_DIR: z.string().optional(),
+  // Log level for the application logger
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  // Log rotation: maximum number of log files to keep (7-day retention = 7 files for daily rotation)
+  LOG_MAX_FILES: z.string().regex(/^\d+$/, 'LOG_MAX_FILES must be a number').default('7'),
+  // Log rotation: maximum size of a single log file before rotation (e.g., "10m")
+  LOG_MAX_SIZE: z.string().default('10m'),
   // Optional PostgreSQL connection URL; falls back to SQLite when unset.
   DATABASE_URL: z
     .string()
