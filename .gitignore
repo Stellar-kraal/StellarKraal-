@@ -104,3 +104,55 @@ infrastructure/terraform.zip
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
 .cache/
+
+# ── OS / editor generated files ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+.Spotlight-V100
+.Trashes
+
+# ── Debug / temp files ────────────────────────────────────────────────────────
+*.pid
+*.seed
+*.pid.lock
+.tmp/
+tmp/
+temp/
+
+# ── Lock files (keep package-lock.json, ignore others) ────────────────────────
+yarn.lock
+pnpm-lock.yaml
+
+# ── Next.js specific ──────────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+
+# ── Storybook ─────────────────────────────────────────────────────────────────
+storybook-static/
+frontend/storybook-static/
+
+# ── Generated summary / implementation notes (not source) ─────────────────────
+PUSH_SUCCESS.md
+FEATURES_COMPLETED.md
+IMPLEMENTATION_SUMMARY*.md
+TRANSACTION_HISTORY_FEATURE.md
+TRANSACTION_INTEGRATION_GUIDE.md
+DARK_MODE_AUDIT.md
+ACCESSIBILITY_IMPLEMENTATION.md
+PR_DESCRIPTIONS.md
+tatus
+
+# ── Backend generated/runtime files ──────────────────────────────────────────
+backend/logs/
+backend/*.sqlite3
+backend/*.db
+backend/dev.sqlite3
+
+# ── Kiro internal ─────────────────────────────────────────────────────────────
+.kiro/
+
+# ── TypeScript build info ─────────────────────────────────────────────────────
+frontend/tsconfig.tsbuildinfo

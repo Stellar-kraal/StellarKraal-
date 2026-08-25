@@ -9,6 +9,7 @@ import ThemeProvider, { ThemeScript } from "@/components/ThemeProvider";
 import { ToastProvider, ToastContainer } from "@/components/toast";
 import SkipToContent from "@/components/SkipToContent";
 import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
+import WhatsNewProvider from "@/components/WhatsNewProvider";
 
 export const metadata: Metadata = {
   title: "StellarKraal — Livestock Micro-Lending",
@@ -95,6 +96,7 @@ export default function RootLayout({
             {children}
             </main>
             <ToastContainer />
+            <WhatsNewProvider />
             </ToastProvider>
           </KeyboardShortcutsProvider>
         </ThemeProvider>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import CurrencySettings from "@/components/CurrencySettings";
 import NotificationPreferences from "@/components/NotificationPreferences";
+import ToastPositionSelector from "@/components/ToastPositionSelector";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function SettingsPage() {
       <div className="space-y-8">
         <CurrencySettings />
         <NotificationPreferences />
+        <ToastPositionSelector />
       </div>
     </main>
   );
