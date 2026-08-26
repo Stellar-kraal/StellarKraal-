@@ -70,7 +70,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow" aria-label="Loading price chart">
+      <div className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow" aria-label="Loading price chart">
         <div className="h-32 flex items-center justify-center">
           <span className="text-brown/50 text-sm">Loading chart…</span>
         </div>
@@ -80,7 +80,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow" role="alert">
+      <div className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow" role="alert">
         <p className="text-sm text-red-500">{error}</p>
       </div>
     );
@@ -88,7 +88,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow">
+      <div className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow">
         <p className="text-sm text-brown/50">No price history available.</p>
       </div>
     );
@@ -103,7 +103,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
 
   return (
     <section
-      className="bg-white rounded-2xl p-6 shadow"
+      className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow"
       aria-label={label}
     >
       <h2 className="text-lg font-semibold text-brown mb-4">{label}</h2>
@@ -115,7 +115,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
         style={{ height: SVG_H }}
       >
         {/* Y-axis labels */}
-        <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fontSize={9} fill="#7c6d5a">
+        <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fontSize={9} style={{ fill: 'var(--token-text-muted)' }}>
           {formatXlm(maxV)}
         </text>
         <text
@@ -123,7 +123,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           y={SVG_H - PAD.bottom}
           textAnchor="end"
           fontSize={9}
-          fill="#7c6d5a"
+          style={{ fill: 'var(--token-text-muted)' }}
         >
           {formatXlm(minV)}
         </text>
@@ -133,7 +133,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           x={PAD.left}
           y={SVG_H - 4}
           fontSize={9}
-          fill="#7c6d5a"
+          style={{ fill: 'var(--token-text-muted)' }}
         >
           {new Date(first.date).toLocaleDateString()}
         </text>
@@ -142,7 +142,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           y={SVG_H - 4}
           textAnchor="end"
           fontSize={9}
-          fill="#7c6d5a"
+          style={{ fill: 'var(--token-text-muted)' }}
         >
           {new Date(last.date).toLocaleDateString()}
         </text>
@@ -153,7 +153,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           y1={PAD.top}
           x2={SVG_W - PAD.right}
           y2={PAD.top}
-          stroke="#e5e0d8"
+          style={{ stroke: 'var(--token-border)' }}
           strokeWidth={0.5}
         />
         <line
@@ -161,7 +161,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           y1={SVG_H - PAD.bottom}
           x2={SVG_W - PAD.right}
           y2={SVG_H - PAD.bottom}
-          stroke="#e5e0d8"
+          style={{ stroke: 'var(--token-border)' }}
           strokeWidth={0.5}
         />
 
@@ -170,7 +170,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           <path
             d={path}
             fill="none"
-            stroke="#b5860a"
+            style={{ stroke: 'var(--token-accent)' }}
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -185,7 +185,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           const cx = PAD.left + innerW;
           const cy = PAD.top + innerH - ((last.value - minV) / range) * innerH;
           return (
-            <circle cx={cx} cy={cy} r={3} fill="#b5860a" />
+            <circle cx={cx} cy={cy} r={3} style={{ fill: 'var(--token-accent)' }} />
           );
         })()}
       </svg>

@@ -110,12 +110,12 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
     <div ref={containerRef} className="relative mt-4 h-28 select-none" onMouseLeave={hideTooltip}>
       <svg viewBox={`0 0 ${W} 100`} preserveAspectRatio="none" className="w-full h-full" aria-label="Health factor history chart" role="img">
         {/* baseline */}
-        <line x1="0" y1="50" x2={W} y2="50" stroke="#4A2C0A" strokeOpacity="0.08" strokeWidth="0.5" />
+        <line x1="0" y1="50" x2={W} y2="50" style={{ stroke: 'var(--token-border-strong)' }} strokeOpacity="0.08" strokeWidth="0.5" />
 
         {/* polyline */}
         <polyline
           fill="none"
-          stroke="#D4A017"
+          style={{ stroke: 'var(--token-accent)' }}
           strokeWidth="1.5"
           strokeLinejoin="round"
           points={history
@@ -145,8 +145,8 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
               cx={px}
               cy={py}
               r={isActive ? 3 : 2}
-              fill={isActive ? color : "#D4A017"}
-              stroke={isActive ? color : "white"}
+              fill={isActive ? color : 'var(--token-accent)'}
+              stroke={isActive ? color : 'var(--token-surface-raised)'}
               strokeWidth={isActive ? 0 : 0.8}
               className={mounted ? "motion-safe:animate-[fadeIn_0.6s_ease-out]" : ""}
               style={{ 
@@ -172,7 +172,7 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-10 rounded-xl bg-brown text-cream text-xs px-3 py-2 shadow-lg"
+          className="pointer-events-none absolute z-10 rounded-xl bg-[color:var(--token-surface-raised)] text-[color:var(--token-text)] text-xs px-3 py-2 shadow-lg border border-[color:var(--token-border)]"
           style={{
             left: tooltip.x,
             top: tooltip.y,
@@ -234,7 +234,7 @@ const ZONES = [
   { start: 0.75, end: 1, color: '#16A34A', label: 'Safe' },
 ];
 
-export default function HealthGauge({ value }: Props) {
+export default function HealthGauge({ value, history }: Props) {
   const frac = Math.min(value / 20_000, 1); // cap at 200% (2.0x)
   const displayValue = (value / 10_000).toFixed(2);
   const color = healthColor(value);
@@ -281,7 +281,7 @@ export default function HealthGauge({ value }: Props) {
         <path
           d={arcPath(180, 0)}
           fill="none"
-          stroke="#e5e7eb"
+          style={{ stroke: 'var(--token-border)' }}
           strokeWidth={STROKE}
           strokeLinecap="round"
         />
@@ -321,13 +321,12 @@ export default function HealthGauge({ value }: Props) {
           y1={CY}
           x2={nx}
           y2={ny}
-          stroke="#1c1917"
           strokeWidth={2.5}
           strokeLinecap="round"
           className="motion-reduce:transition-none"
-          style={{ transition: 'x2 0.6s ease-out, y2 0.6s ease-out' }}
+          style={{ stroke: 'var(--token-text)', transition: 'x2 0.6s ease-out, y2 0.6s ease-out' }}
         />
-        <circle cx={CX} cy={CY} r={5} fill="#1c1917" />
+        <circle cx={CX} cy={CY} r={5} style={{ fill: 'var(--token-text)' }} />
 
         {/* Numeric value */}
         <text x={CX} y={CY + 18} textAnchor="middle" fontSize="13" fontWeight="700" fill={color}>
@@ -339,6 +338,13 @@ export default function HealthGauge({ value }: Props) {
       <span className="text-sm font-semibold mt-1" style={{ color }}>
         {label}
       </span>
+
+      {/* History chart — only rendered when time-series data is provided */}
+      {history && history.length > 1 && (
+        <div className="w-full mt-2">
+          <HistoryChart history={history} />
+        </div>
+      )}
     </div>
   );
 }

@@ -72,7 +72,7 @@ describe('HealthGauge', () => {
     const { container } = render(<HealthGauge value={12_000} />);
     const paths = container.querySelectorAll('path');
     const progressArc = Array.from(paths).find(
-      (p) => p.className.includes('motion-reduce'),
+      (p) => p.className.baseVal?.includes('motion-reduce') || p.classList.contains('motion-reduce:transition-none'),
     );
     expect(progressArc).toBeTruthy();
 
@@ -90,14 +90,120 @@ describe('HealthGauge', () => {
         ]}
       />,
     );
-    // After mount, points should have motion-safe animation class
+    // After mount, data point circles should be rendered in the history chart
     const circles = container.querySelectorAll('circle[role="button"]');
-    // Circles are rendered; mounted state may vary in test env but they exist
     expect(circles.length).toBe(2);
   });
 
+  // ── Design-token tests (issue #818) ──────────────────────────────────────
+
+  it('background track uses --token-border CSS variable instead of hardcoded hex', () => {
+    const { container } = render(<HealthGauge value={12_000} />);
+    const paths = container.querySelectorAll('path');
+    // The background track is the first path with no strokeDasharray
+    const trackPath = Array.from(paths).find(
+      (p) => !p.style.strokeDasharray && p.style.stroke === 'var(--token-border)',
+    );
+    expect(trackPath).toBeTruthy();
+  });
+
+  it('needle uses --token-text CSS variable instead of hardcoded hex', () => {
+    const { container } = render(<HealthGauge value={12_000} />);
+    const needle = container.querySelector('line');
+    expect(needle).toBeTruthy();
+    expect(needle!.style.stroke).toBe('var(--token-text)');
+  });
+
+  it('needle pivot circle uses --token-text fill', () => {
+    const { container } = render(<HealthGauge value={12_000} />);
+    // The pivot circle has r=5 and fill via style
+    const circles = container.querySelectorAll('svg circle');
+    const pivotCircle = Array.from(circles).find(
+      (c) => c.getAttribute('r') === '5',
+    );
+    expect(pivotCircle).toBeTruthy();
+    expect((pivotCircle as SVGCircleElement).style.fill).toBe('var(--token-text)');
+  });
+
+  it('history chart polyline uses --token-accent CSS variable instead of hardcoded hex', () => {
+    const { container } = render(
+      <HealthGauge
+        value={10_000}
+        history={[
+          { date: '2026-01-01', value: 8_000 },
+          { date: '2026-02-01', value: 11_000 },
+        ]}
+      />,
+    );
+    const polyline = container.querySelector('polyline');
+    expect(polyline).toBeTruthy();
+    expect(polyline!.style.stroke).toBe('var(--token-accent)');
+  });
+
+  it('history chart baseline uses --token-border-strong CSS variable', () => {
+    const { container } = render(
+      <HealthGauge
+        value={10_000}
+        history={[
+          { date: '2026-01-01', value: 8_000 },
+          { date: '2026-02-01', value: 11_000 },
+        ]}
+      />,
+    );
+    const lines = container.querySelectorAll('svg line');
+    const baseline = Array.from(lines).find(
+      (l) => l.style.stroke === 'var(--token-border-strong)',
+    );
+    expect(baseline).toBeTruthy();
+  });
+
+  it('inactive data-point circles use --token-accent fill and --token-surface-raised stroke', () => {
+    const { container } = render(
+      <HealthGauge
+        value={10_000}
+        history={[
+          { date: '2026-01-01', value: 8_000 },
+          { date: '2026-02-01', value: 11_000 },
+        ]}
+      />,
+    );
+    // Inactive circles carry the token values in their attributes (not style)
+    const pointCircles = container.querySelectorAll('circle[role="button"]');
+    expect(pointCircles.length).toBe(2);
+    // Both start inactive — fill and stroke should be CSS vars
+    pointCircles.forEach((c) => {
+      expect(c.getAttribute('fill')).toBe('var(--token-accent)');
+      expect(c.getAttribute('stroke')).toBe('var(--token-surface-raised)');
+    });
+  });
+
+  it('tooltip uses design-token CSS classes, not bg-brown/text-cream', () => {
+    const { container } = render(
+      <HealthGauge
+        value={10_000}
+        history={[
+          { date: '2026-01-01', value: 8_000 },
+          { date: '2026-02-01', value: 11_000 },
+        ]}
+      />,
+    );
+    const buttons = container.querySelectorAll('circle[role="button"]');
+    // Hover on first point to show tooltip
+    act(() => {
+      fireEvent.mouseEnter(buttons[0]);
+    });
+    const tooltip = container.querySelector('[role="tooltip"]');
+    expect(tooltip).toBeTruthy();
+    // Must NOT contain legacy colour classes
+    expect(tooltip!.className).not.toMatch(/bg-brown/);
+    expect(tooltip!.className).not.toMatch(/text-cream/);
+    // Must use token-based classes
+    expect(tooltip!.className).toMatch(/token-surface-raised/);
+    expect(tooltip!.className).toMatch(/token-text/);
+  });
+
   it('allows keyboard navigation between chart points and shows tooltip', () => {
-    render(
+    const { container } = render(
       <HealthGauge
         value={10000}
         history={[
@@ -107,7 +213,11 @@ describe('HealthGauge', () => {
       />,
     );
 
-    const points = screen.getAllByRole('button');
+    // SVG circles have role="button" — use querySelectorAll since jsdom may not
+    // expose SVG elements via getByRole
+    const points = Array.from(
+      container.querySelectorAll<SVGCircleElement>('circle[role="button"]'),
+    );
     expect(points).toHaveLength(2);
 
     act(() => {
