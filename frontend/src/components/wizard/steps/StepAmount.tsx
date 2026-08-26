@@ -1,7 +1,8 @@
 "use client";
 import { useWizard } from "@/context/LoanWizardContext";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
-import { Input, Button } from "@/components/ui";
+import { Button } from "@/components/ui";
+import NumericInput from "@/components/NumericInput";
 
 const TERM_OPTIONS = [
   { days: "7", label: "7 days", rate: "2%" },
@@ -60,12 +61,9 @@ export default function StepAmount() {
 
       {/* Amount input */}
       <div>
-        <Input
+        <NumericInput
           label="Loan Amount (stroops)"
-          type="number"
-          min="1"
-          max={maxLoan}
-          placeholder="e.g. 5000000"
+          placeholder="e.g. 5,000,000"
           value={loanAmount}
           onChange={(e) => setField("loanAmount", e.target.value)}
         />
