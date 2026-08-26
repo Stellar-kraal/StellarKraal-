@@ -104,3 +104,9 @@ infrastructure/terraform.zip
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
 .cache/
+
+# ── Stale / scratch files (never source, generated or leftover from tooling) ──
+tatus
+stellarkreal
+cargo_out.txt
+PUSH_SUCCESS.md
