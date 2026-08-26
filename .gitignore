@@ -104,3 +104,41 @@ infrastructure/terraform.zip
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
 .cache/
+
+# ── OS / editor temporary files ───────────────────────────────────────────────
+*.orig
+*.bak
+*.tmp
+*.temp
+**/*.orig
+**/*.bak
+
+# ── Generated cargo output / build logs ───────────────────────────────────────
+cargo_out.txt
+cargo_build.txt
+rust-build.log
+
+# ── Lighthouse / performance reports (generated) ──────────────────────────────
+.lighthouseci/
+lhci_reports/
+lighthouse-results/
+
+# ── TypeDoc generated HTML (checked-in under docs/backend but not re-generated output) ──
+# Uncomment if TypeDoc output should not be committed:
+# docs/backend/
+
+# ── k6 / load test results ────────────────────────────────────────────────────
+k6-results/
+load-test-results/
+
+# ── npm pack output ───────────────────────────────────────────────────────────
+*.tgz
+
+# ── pidfiles ──────────────────────────────────────────────────────────────────
+*.pid
+*.pid.lock
+
+# ── Soroban deployment receipts / local key files ────────────────────────────
+.soroban/
+identity/
+

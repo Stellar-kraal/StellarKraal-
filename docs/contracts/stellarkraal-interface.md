@@ -33,6 +33,21 @@ The contract manages livestock-backed loans with the following responsibilities:
   - `Unauthorized` (#3) if `admin` is the all-zeros account (`GAAA…WHF`).
   - `InvalidAmount` (#8) if `ltv_bps` is 0 or > 9000, or if `liquidation_threshold_bps` < `ltv_bps`.
 
+### `is_initialized(env)`
+- Description: Returns `true` if the contract has been initialized, `false` otherwise. Read-only view — no authentication required. Off-chain tools (deployment scripts, dashboards, health checks) should call this before any other function to verify the contract is ready.
+- Parameters: none.
+- Returns: `bool` — `true` if `initialize()` has been called successfully, `false` if not.
+- State changes: none.
+- CLI example:
+  ```bash
+  stellar contract invoke \
+    --id $CONTRACT_ID \
+    --rpc-url https://soroban-testnet.stellar.org \
+    --network-passphrase "Test SDF Network ; September 2015" \
+    -- is_initialized
+  ```
+  Returns `true` (Boolean) if initialized, `false` otherwise.
+
 ### `is_paused(env)`
 - Description: Query whether the contract is currently paused.
 - Parameters: none.
