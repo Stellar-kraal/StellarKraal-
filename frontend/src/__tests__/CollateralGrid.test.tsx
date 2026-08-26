@@ -1,7 +1,7 @@
 /**
  * Component tests for CollateralGrid.
  * Covers loading, populated, empty, card click, and health indicator states.
- * Closes #362, #779
+ * Closes #362, #779, #819
  */
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -19,8 +19,9 @@ describe("CollateralGrid", () => {
       const { container } = render(
         <CollateralGrid collaterals={[]} loading={true} onCardClick={jest.fn()} />
       );
-      const pulseCards = container.querySelectorAll(".animate-pulse");
-      expect(pulseCards.length).toBeGreaterThan(0);
+      // SkeletonCollateralCard renders Card with aria-busy="true"
+      const skeletonCards = container.querySelectorAll('[aria-busy="true"]');
+      expect(skeletonCards.length).toBeGreaterThan(0);
     });
 
     it("does not render collateral data while loading", () => {
@@ -129,7 +130,8 @@ describe("CollateralGrid", () => {
       );
       const healthDot = container.querySelector('[role="img"][aria-label*="Loan health"]');
       expect(healthDot).toBeTruthy();
-      const dot = healthDot?.querySelector("div");
+      // The colored dot is the div.w-3.rounded-full inside the flex wrapper
+      const dot = healthDot?.querySelector(".w-3");
       expect(dot?.style.backgroundColor).toBe("rgb(22, 163, 74)"); // #16A34A green
     });
 
@@ -144,7 +146,7 @@ describe("CollateralGrid", () => {
       );
       const healthDot = container.querySelector('[role="img"][aria-label*="Loan health"]');
       expect(healthDot).toBeTruthy();
-      const dot = healthDot?.querySelector("div");
+      const dot = healthDot?.querySelector(".w-3");
       expect(dot?.style.backgroundColor).toBe("rgb(217, 119, 6)"); // #D97706 yellow
     });
 
@@ -159,7 +161,7 @@ describe("CollateralGrid", () => {
       );
       const healthDot = container.querySelector('[role="img"][aria-label*="Loan health"]');
       expect(healthDot).toBeTruthy();
-      const dot = healthDot?.querySelector("div");
+      const dot = healthDot?.querySelector(".w-3");
       expect(dot?.style.backgroundColor).toBe("rgb(220, 38, 38)"); // #DC2626 red
     });
 
@@ -215,6 +217,199 @@ describe("CollateralGrid", () => {
 
       rerender(<CollateralGrid collaterals={[danger]} loading={false} onCardClick={jest.fn()} />);
       expect(screen.getByText("✕")).toBeTruthy();
+    });
+  });
+
+  describe("keyboard grid navigation (#819)", () => {
+    /** Helper: get the grid element */
+    const getGrid = (container: HTMLElement) =>
+      container.querySelector('[role="grid"]') as HTMLElement;
+
+    /** Helper: get all card buttons inside gridcells */
+    const getCardButtons = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll('[role="gridcell"] button')) as HTMLButtonElement[];
+
+    it("renders the grid container with role='grid'", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      expect(getGrid(container)).toBeTruthy();
+    });
+
+    it("renders each card wrapper with role='gridcell'", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const cells = container.querySelectorAll('[role="gridcell"]');
+      expect(cells.length).toBe(mockCollateral.length);
+    });
+
+    it("first card button has tabIndex=0 and rest have tabIndex=-1 initially", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const buttons = getCardButtons(container);
+      expect(buttons[0].tabIndex).toBe(0);
+      expect(buttons[1].tabIndex).toBe(-1);
+    });
+
+    it("moves focus to next card on ArrowRight key", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      // Initial state: first button is tab-focusable
+      expect(buttons[0].tabIndex).toBe(0);
+
+      // Focus the first button so the grid receives key events in context
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowRight' });
+
+      // After ArrowRight, second card should be in the tab order
+      expect(buttons[1].tabIndex).toBe(0);
+      expect(buttons[0].tabIndex).toBe(-1);
+    });
+
+    it("moves focus to next card on ArrowDown key", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowDown' });
+
+      expect(buttons[1].tabIndex).toBe(0);
+      expect(buttons[0].tabIndex).toBe(-1);
+    });
+
+    it("moves focus to previous card on ArrowLeft key", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      // First move to card 1
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowRight' });
+      expect(buttons[1].tabIndex).toBe(0);
+
+      // Then move back
+      buttons[1].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowLeft' });
+      expect(buttons[0].tabIndex).toBe(0);
+      expect(buttons[1].tabIndex).toBe(-1);
+    });
+
+    it("moves focus to previous card on ArrowUp key", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowDown' });
+      expect(buttons[1].tabIndex).toBe(0);
+
+      buttons[1].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowUp' });
+      expect(buttons[0].tabIndex).toBe(0);
+    });
+
+    it("does not move past the last card on ArrowRight", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      // Move to last card
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowRight' });
+      // Now at index 1 (last)
+      buttons[1].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowRight' });
+
+      // Should still be at last card
+      expect(buttons[1].tabIndex).toBe(0);
+    });
+
+    it("does not move before the first card on ArrowLeft", () => {
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      // Already at first
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowLeft' });
+
+      expect(buttons[0].tabIndex).toBe(0);
+    });
+
+    it("Home key jumps to first card", () => {
+      const threeCollaterals = [
+        makeCollateral({ id: "col-1", animal_type: "cattle" }),
+        makeCollateral({ id: "col-2", animal_type: "goat" }),
+        makeCollateral({ id: "col-3", animal_type: "sheep" }),
+      ];
+      const { container } = render(
+        <CollateralGrid collaterals={threeCollaterals} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      // Move to last card
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'ArrowRight' });
+      fireEvent.keyDown(grid, { key: 'ArrowRight' });
+      expect(buttons[2].tabIndex).toBe(0);
+
+      // Home should jump back to first
+      buttons[2].focus();
+      fireEvent.keyDown(grid, { key: 'Home' });
+      expect(buttons[0].tabIndex).toBe(0);
+    });
+
+    it("End key jumps to last card", () => {
+      const threeCollaterals = [
+        makeCollateral({ id: "col-1", animal_type: "cattle" }),
+        makeCollateral({ id: "col-2", animal_type: "goat" }),
+        makeCollateral({ id: "col-3", animal_type: "sheep" }),
+      ];
+      const { container } = render(
+        <CollateralGrid collaterals={threeCollaterals} loading={false} onCardClick={jest.fn()} />
+      );
+      const grid = getGrid(container);
+      const buttons = getCardButtons(container);
+
+      // Start at first
+      buttons[0].focus();
+      fireEvent.keyDown(grid, { key: 'End' });
+      expect(buttons[2].tabIndex).toBe(0);
+      expect(buttons[0].tabIndex).toBe(-1);
+    });
+
+    it("clicking a card updates focusedIndex so that card gets tabIndex=0", () => {
+      const onCardClick = jest.fn();
+      const { container } = render(
+        <CollateralGrid collaterals={mockCollateral} loading={false} onCardClick={onCardClick} />
+      );
+      const buttons = getCardButtons(container);
+
+      // Initially first card is focusable
+      expect(buttons[0].tabIndex).toBe(0);
+
+      // Click the second card
+      fireEvent.click(buttons[1]);
+      expect(buttons[1].tabIndex).toBe(0);
+      expect(buttons[0].tabIndex).toBe(-1);
     });
   });
 
@@ -299,7 +494,8 @@ describe("CollateralGrid", () => {
       fireEvent.click(selectAllCheckbox);
       expect(screen.getByText("2 selected")).toBeInTheDocument();
 
-      const clearButton = screen.getByRole("button", { name: /Clear/i });
+      // Clear button has aria-label="Deselect all items"
+      const clearButton = screen.getByRole("button", { name: /Deselect all items/i });
       fireEvent.click(clearButton);
       expect(screen.queryByText("2 selected")).not.toBeInTheDocument();
     });
