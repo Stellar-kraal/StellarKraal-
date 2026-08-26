@@ -104,3 +104,33 @@ infrastructure/terraform.zip
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
 .cache/
+
+# ── AI / IDE agent config (not project source) ────────────────────────────────
+.claude/
+.kiro/
+
+# ── Scratch / one-off output files in root ────────────────────────────────────
+cargo_out.txt
+tatus
+PUSH_SUCCESS.md
+IMPLEMENTATION_SUMMARY*.md
+IMPLEMENTATION_SUMMARY_*.md
+TRANSACTION_HISTORY_FEATURE.md
+TRANSACTION_INTEGRATION_GUIDE.md
+FEATURES_COMPLETED.md
+DARK_MODE_AUDIT.md
+ACCESSIBILITY_IMPLEMENTATION.md
+PR_DESCRIPTIONS.md
+STAGING.md
+
+# ── TypeScript incremental build info (frontend) ─────────────────────────────
+frontend/tsconfig.tsbuildinfo
+
+# ── Generated audit reports ───────────────────────────────────────────────────
+frontend/audit-reports/
+
+# ── Backend SQLite dev DB ─────────────────────────────────────────────────────
+backend/dev.sqlite3
+
+# ── Backend log rotation audit files ─────────────────────────────────────────
+backend/logs/
