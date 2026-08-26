@@ -9,6 +9,8 @@ import ThemeProvider, { ThemeScript } from "@/components/ThemeProvider";
 import { ToastProvider, ToastContainer } from "@/components/toast";
 import SkipToContent from "@/components/SkipToContent";
 import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
+import SessionTimeoutBanner from "@/components/SessionTimeoutBanner";
+import TopProgressBar from "@/components/TopProgressBar";
 
 export const metadata: Metadata = {
   title: "StellarKraal — Livestock Micro-Lending",
@@ -35,6 +37,8 @@ export default function RootLayout({
           <KeyboardShortcutsProvider>
             <ToastProvider>
               <SkipToContent />
+              <TopProgressBar />
+              <SessionTimeoutBanner />
               <NetworkMismatchBanner />
               <OfflineBanner />
             {/* Top utility nav */}

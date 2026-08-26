@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { PriceChart } from "@/components/PriceChart";
 import ErrorState from "@/components/ErrorState";
 import DetailSkeleton from "@/components/DetailSkeleton";
+import CollateralLocationSection from "@/components/CollateralLocationSection";
+import LiquidationThresholdBadge from "@/components/LiquidationThresholdBadge";
 
 interface AppraisalEntry {
   date: string;
@@ -24,6 +26,10 @@ interface CollateralRecord {
   appraised_value: number;
   appraisal_history: AppraisalEntry[];
   createdAt: string;
+  /** Optional GPS / text location — shown in location placeholder section (#568). */
+  location?: string | null;
+  /** Liquidation threshold in bps from the backend, e.g. 8000 = 80% (#697). */
+  liquidation_threshold_bps?: number | null;
 }
 
 type ErrorType = "404" | "network" | null;
@@ -185,6 +191,12 @@ export default function CollateralDetailPage() {
           label="Price History"
         />
       </div>
+
+      {/* Liquidation threshold — #697 */}
+      <LiquidationThresholdBadge thresholdBps={record.liquidation_threshold_bps} />
+
+      {/* Location placeholder — #568 */}
+      <CollateralLocationSection location={record.location} />
     </main>
   );
 }
