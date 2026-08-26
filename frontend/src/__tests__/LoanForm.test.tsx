@@ -16,6 +16,16 @@ jest.mock("../lib/stellarUtils", () => ({
   formatStroops: (s: number) => `${s / 1e7} XLM`,
 }));
 
+jest.mock("next/link", () =>
+  function MockLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
+    return React.createElement("a", { href, className }, children);
+  }
+);
+
+jest.mock("framer-motion", () => ({
+  useReducedMotion: jest.fn().mockReturnValue(false),
+}));
+
 const fetchMock = jest.fn();
 beforeEach(() => {
   fetchMock.mockReset();
@@ -67,6 +77,9 @@ describe("LoanForm", () => {
     fetchMock.mockRejectedValue(new Error("Network error"));
 
     renderWithToast(<LoanForm walletAddress="GTEST" />);
+    // Must fill fields first so validation passes and fetch is called
+    fireEvent.change(screen.getByPlaceholderText("Number of animals"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Total appraised value"), { target: { value: "100000" } });
     fireEvent.click(screen.getByText("Register & Continue"));
 
     await waitFor(() =>
@@ -74,7 +87,7 @@ describe("LoanForm", () => {
     );
   });
 
-  it("submits loan request and shows success toast", async () => {
+  it("submits loan request and shows success state", async () => {
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr1" }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr2" }) });
@@ -93,8 +106,116 @@ describe("LoanForm", () => {
     fireEvent.click(screen.getByText("Request Loan"));
 
     await waitFor(() =>
-      expect(screen.getAllByRole("alert").some(el => el.textContent?.includes("Loan disbursed"))).toBe(true)
+      expect(screen.getByRole("heading", { name: "Loan Requested!" })).toBeInTheDocument()
     );
+  });
+
+  it("shows 'Loan Requested!' success state after successful loan submission", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr2" }) });
+    mockSignTransaction.mockResolvedValue({ signedTxXdr: "signed" });
+    mockSubmitSignedXdr
+      .mockResolvedValueOnce("col-456")
+      .mockResolvedValueOnce("loan-id-99");
+
+    renderWithToast(<LoanForm walletAddress="GTEST" />);
+    fireEvent.change(screen.getByPlaceholderText("Number of animals"), { target: { value: "3" } });
+    fireEvent.change(screen.getByPlaceholderText("Total appraised value"), { target: { value: "500000" } });
+    fireEvent.click(screen.getByText("Register & Continue"));
+
+    await waitFor(() => screen.getByText("2. Request Loan"));
+
+    fireEvent.change(screen.getByPlaceholderText("Your collateral ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount to borrow"), { target: { value: "200000" } });
+    fireEvent.click(screen.getByText("Request Loan"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Loan Requested!" })).toBeInTheDocument()
+    );
+  });
+
+  it("shows loan ID in success summary", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr2" }) });
+    mockSignTransaction.mockResolvedValue({ signedTxXdr: "signed" });
+    mockSubmitSignedXdr
+      .mockResolvedValueOnce("col-456")
+      .mockResolvedValueOnce("loan-id-99");
+
+    renderWithToast(<LoanForm walletAddress="GTEST" />);
+    fireEvent.change(screen.getByPlaceholderText("Number of animals"), { target: { value: "3" } });
+    fireEvent.change(screen.getByPlaceholderText("Total appraised value"), { target: { value: "500000" } });
+    fireEvent.click(screen.getByText("Register & Continue"));
+
+    await waitFor(() => screen.getByText("2. Request Loan"));
+
+    fireEvent.change(screen.getByPlaceholderText("Your collateral ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount to borrow"), { target: { value: "200000" } });
+    fireEvent.click(screen.getByText("Request Loan"));
+
+    await waitFor(() => {
+      const loanIdEl = screen.getByTestId("success-loan-id");
+      expect(loanIdEl).toHaveTextContent("loan-id-99");
+    });
+  });
+
+  it("renders a 'View My Loans' link in success state", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr2" }) });
+    mockSignTransaction.mockResolvedValue({ signedTxXdr: "signed" });
+    mockSubmitSignedXdr
+      .mockResolvedValueOnce("col-456")
+      .mockResolvedValueOnce("loan-id-99");
+
+    renderWithToast(<LoanForm walletAddress="GTEST" />);
+    fireEvent.change(screen.getByPlaceholderText("Number of animals"), { target: { value: "3" } });
+    fireEvent.change(screen.getByPlaceholderText("Total appraised value"), { target: { value: "500000" } });
+    fireEvent.click(screen.getByText("Register & Continue"));
+
+    await waitFor(() => screen.getByText("2. Request Loan"));
+
+    fireEvent.change(screen.getByPlaceholderText("Your collateral ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount to borrow"), { target: { value: "200000" } });
+    fireEvent.click(screen.getByText("Request Loan"));
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: /View My Loans/i });
+      expect(link).toHaveAttribute("href", "/loans");
+    });
+  });
+
+  it("resets back to step 1 when 'Submit Another' is clicked in success state", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: "xdr2" }) });
+    mockSignTransaction.mockResolvedValue({ signedTxXdr: "signed" });
+    mockSubmitSignedXdr
+      .mockResolvedValueOnce("col-456")
+      .mockResolvedValueOnce("loan-id-99");
+
+    renderWithToast(<LoanForm walletAddress="GTEST" />);
+    fireEvent.change(screen.getByPlaceholderText("Number of animals"), { target: { value: "3" } });
+    fireEvent.change(screen.getByPlaceholderText("Total appraised value"), { target: { value: "500000" } });
+    fireEvent.click(screen.getByText("Register & Continue"));
+
+    await waitFor(() => screen.getByText("2. Request Loan"));
+
+    fireEvent.change(screen.getByPlaceholderText("Your collateral ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount to borrow"), { target: { value: "200000" } });
+    fireEvent.click(screen.getByText("Request Loan"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Loan Requested!" })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Submit Another/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("1. Register Collateral")).toBeInTheDocument();
+    });
   });
 
   it("shows error toast when loan request fails", async () => {
@@ -110,8 +231,8 @@ describe("LoanForm", () => {
     fireEvent.click(screen.getByText("Register & Continue"));
 
     await waitFor(() => screen.getByText("2. Request Loan"));
-    fireEvent.change(screen.getByPlaceholderText("Collateral ID"), { target: { value: "1" } });
-    fireEvent.change(screen.getByPlaceholderText("Loan amount (stroops)"), { target: { value: "5000" } });
+    fireEvent.change(screen.getByPlaceholderText("Your collateral ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount to borrow"), { target: { value: "5000" } });
     fireEvent.click(screen.getByText("Request Loan"));
 
     await waitFor(() =>

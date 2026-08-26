@@ -8,6 +8,7 @@ import { useToast } from '@/components/toast';
 import { Input, Select } from '@/components/ui';
 import { useFetchWithRateLimit } from '@/hooks/useFetchWithRateLimit';
 import { useNetworkMismatch } from '@/hooks/useNetworkMismatch';
+import FormSuccess from '@/components/FormSuccess';
 
 interface Props {
   walletAddress: string;
@@ -70,6 +71,9 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
   const [collateralId, setCollateralId] = useState(initialCollateralId || '');
   const [loanAmount, setLoanAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  /** Set to the loan ID after a successful loan request — triggers success state */
+  const [successLoanId, setSuccessLoanId] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const toast = useToast();
   const { retryCountdown, isRateLimited, fetchWithLimit } = useFetchWithRateLimit();
   const networkMismatch = useNetworkMismatch(walletAddress);
@@ -94,6 +98,19 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
 
   function touchAll(fields: string[]) {
     setTouched((prev) => Object.fromEntries([...Object.entries(prev), ...fields.map((f) => [f, true])]));
+  }
+
+  // ── Reset (Submit Another) ──────────────────────────────────────────────────
+
+  function resetToStart() {
+    setSuccessLoanId(null);
+    setStep('collateral');
+    setAnimalType('cattle');
+    setCount('');
+    setAppraisedValue('');
+    setCollateralId('');
+    setLoanAmount('');
+    setTouched({});
   }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -124,6 +141,7 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
       });
       const result = await submitSignedXdr(signedTxXdr);
       toast.success(`Collateral registered! ID: ${result}`);
+      setCollateralId(String(result));
       setStep('loan');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Registration failed');
@@ -156,12 +174,43 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
         network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
       });
       const result = await submitSignedXdr(signedTxXdr);
-      toast.success(`Loan disbursed! Loan ID: ${result}`);
+      setSuccessLoanId(String(result));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Loan request failed');
     } finally {
       setLoading(false);
     }
+  }
+
+  // ── Success state ────────────────────────────────────────────────────────────
+
+  if (successLoanId) {
+    return (
+      <div className="bg-white dark:bg-[#1C1008] rounded-2xl p-6 shadow border border-transparent dark:border-gold/20 mt-6">
+        <FormSuccess
+          title="Loan Requested!"
+          summary={
+            <div className="space-y-1 text-left">
+              <p>
+                <span className="font-medium">Loan ID:</span>{' '}
+                <span data-testid="success-loan-id">{successLoanId}</span>
+              </p>
+              <p>
+                <span className="font-medium">Collateral ID:</span>{' '}
+                {collateralId}
+              </p>
+              <p>
+                <span className="font-medium">Amount:</span>{' '}
+                {parseInt(loanAmount).toLocaleString()} stroops
+              </p>
+            </div>
+          }
+          onSubmitAnother={resetToStart}
+          viewDetailsHref="/loans"
+          viewDetailsLabel="View My Loans"
+        />
+      </div>
+    );
   }
 
   return (

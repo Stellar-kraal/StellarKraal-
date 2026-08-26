@@ -3,6 +3,15 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CollateralRegistrationForm from "@/components/CollateralRegistrationForm";
 import { ToastProvider, ToastContainer } from "@/components/toast";
 
+// Mock focus-trap-react so JSDOM doesn't throw on ConfirmDialog activation
+jest.mock("focus-trap-react", () => {
+  const React = require("react");
+  function FocusTrap({ children }: { children: React.ReactNode }) {
+    return React.createElement(React.Fragment, null, children);
+  }
+  return FocusTrap;
+});
+
 // Mock dependencies
 jest.mock("@stellar/freighter-api", () => ({
   signTransaction: jest.fn().mockResolvedValue({ signedTxXdr: "signed_xdr" }),
@@ -11,6 +20,20 @@ jest.mock("@stellar/freighter-api", () => ({
 jest.mock("@/lib/stellarUtils", () => ({
   submitSignedXdr: jest.fn().mockResolvedValue("collateral_123"),
 }));
+
+jest.mock("framer-motion", () => ({
+  motion: {
+    button: ({ children, ...props }: React.ComponentPropsWithoutRef<"button">) =>
+      React.createElement("button", props, children),
+  },
+  useReducedMotion: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock("next/link", () =>
+  function MockLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
+    return React.createElement("a", { href, className }, children);
+  }
+);
 
 global.fetch = jest.fn();
 
@@ -29,6 +52,13 @@ function fillAndSubmit() {
   fireEvent.change(screen.getByPlaceholderText("Average weight per animal"), { target: { value: "450" } });
   fireEvent.change(screen.getByPlaceholderText("Farm or region name"), { target: { value: "Green Valley Farm" } });
   fireEvent.change(screen.getByPlaceholderText("Total value in stroops"), { target: { value: "1000000" } });
+  fireEvent.change(screen.getByPlaceholderText("e.g., Holstein, Boer, Merino"), { target: { value: "Holstein" } });
+  fireEvent.change(screen.getByPlaceholderText("Age of the animal"), { target: { value: "3" } });
+  // Simulate a file upload for the image field
+  const file = new File(["dummy"], "cow.jpg", { type: "image/jpeg" });
+  const fileInput = screen.getByLabelText("Upload animal photo");
+  Object.defineProperty(fileInput, "files", { value: [file] });
+  fireEvent.change(fileInput);
   fireEvent.click(screen.getByRole("button", { name: /Register Collateral/ }));
 }
 
@@ -120,7 +150,7 @@ describe("CollateralRegistrationForm", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("submits form with valid data and shows success toast", async () => {
+  it("submits form with valid data and shows success state", async () => {
     renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} onSuccess={mockOnSuccess} />);
 
     fillAndSubmit();
@@ -137,7 +167,8 @@ describe("CollateralRegistrationForm", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(/Collateral registered successfully/);
+      // After successful submission the FormSuccess component is shown
+      expect(screen.getByRole("heading", { name: "Collateral Registered!" })).toBeInTheDocument();
       expect(mockOnSuccess).toHaveBeenCalledWith("collateral_123");
     });
   });
@@ -169,15 +200,86 @@ describe("CollateralRegistrationForm", () => {
     });
   });
 
-  it("resets form after successful submission", async () => {
+  it("resets form after successful submission via Submit Another", async () => {
     renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} />);
 
-    const quantityInput = screen.getByPlaceholderText("Number of animals") as HTMLInputElement;
     fillAndSubmit();
     confirmSubmit();
 
+    // Wait for success state
     await waitFor(() => {
-      expect(quantityInput.value).toBe("");
+      expect(screen.getByRole("heading", { name: "Collateral Registered!" })).toBeInTheDocument();
+    });
+
+    // Click "Submit Another" to reset the form
+    fireEvent.click(screen.getByRole("button", { name: /Submit Another/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Register Livestock Collateral")).toBeInTheDocument();
+    });
+  });
+
+  describe("Success state (FormSuccess integration)", () => {
+    it("shows 'Collateral Registered!' heading after successful submission", async () => {
+      renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} onSuccess={mockOnSuccess} />);
+
+      fillAndSubmit();
+      confirmSubmit();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Collateral Registered!" })).toBeInTheDocument();
+      });
+    });
+
+    it("shows the collateral ID in the success summary", async () => {
+      renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} onSuccess={mockOnSuccess} />);
+
+      fillAndSubmit();
+      confirmSubmit();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("success-collateral-id")).toHaveTextContent("collateral_123");
+      });
+    });
+
+    it("renders a link to '/collateral/{id}' in success state", async () => {
+      renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} />);
+
+      fillAndSubmit();
+      confirmSubmit();
+
+      await waitFor(() => {
+        const link = screen.getByRole("link", { name: /View Collateral/i });
+        expect(link).toHaveAttribute("href", "/collateral/collateral_123");
+      });
+    });
+
+    it("resets back to the form when 'Submit Another' is clicked", async () => {
+      renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} />);
+
+      fillAndSubmit();
+      confirmSubmit();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Collateral Registered!" })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /Submit Another/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Register Livestock Collateral")).toBeInTheDocument();
+      });
+    });
+
+    it("success state has role='status' for screen readers", async () => {
+      renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} />);
+
+      fillAndSubmit();
+      confirmSubmit();
+
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toBeInTheDocument();
+      });
     });
   });
 
