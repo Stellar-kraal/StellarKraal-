@@ -1,12 +1,13 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
+import { useState, useEffect, useCallback } from 'react';
 import { signTransaction } from '@/lib/freighterClient';
 import { submitSignedXdr } from '@/lib/stellarUtils';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Spinner from '@/components/Spinner';
 import { motion, useReducedMotion } from 'framer-motion';
 import { submitVariants } from '@/lib/animations';
-import { Input, Select, Button, Label, FieldError } from '@/components/ui';
+import { Input, Select, Button, ErrorSummary, toSummaryErrors } from '@/components/ui';
+import { useToast } from '@/components/toast';
 
 interface Props {
   walletAddress: string;
@@ -20,6 +21,9 @@ interface FormData {
   healthStatus: string;
   location: string;
   appraisedValue: string;
+  breed: string;
+  age: string;
+  image: File | null;
 }
 
 interface FormErrors {
@@ -29,6 +33,8 @@ interface FormErrors {
   healthStatus?: string;
   location?: string;
   appraisedValue?: string;
+  breed?: string;
+  age?: string;
   image?: string;
 }
 
@@ -38,13 +44,21 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const AUTO_SAVE_INTERVAL = 5000;
 const STORAGE_KEY = 'stellarkraal_collateral_form';
 
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const FIELD_IDS: Record<keyof FormErrors, string> = {
+  animalType: 'reg-animal-type',
+  quantity: 'reg-quantity',
+  weight: 'reg-weight',
+  healthStatus: 'reg-health-status',
+  location: 'reg-location',
+  appraisedValue: 'reg-appraised-value',
+  breed: 'reg-breed',
+  age: 'reg-age',
+  image: 'reg-image',
+};
 
 export default function CollateralRegistrationForm({ walletAddress, onSuccess }: Props) {
   const reduced = useReducedMotion();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const toast = useToast();
   const [formData, setFormData] = useState<FormData>({
     animalType: 'cattle',
     quantity: '',
@@ -52,13 +66,18 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
     healthStatus: 'good',
     location: '',
     appraisedValue: '',
+    breed: '',
+    age: '',
+    image: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [status, setStatus] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -119,81 +138,80 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const validateField = useCallback((name: keyof FormData, value: string): string | undefined => {
-    switch (name) {
-      case 'quantity': {
-        if (!value) return 'Quantity is required';
-        const qty = parseInt(value);
-        if (isNaN(qty) || qty <= 0) return 'Quantity must be a positive number';
-        break;
+  const validateField = useCallback(
+    (name: keyof FormData, value: string | File | null): string | undefined => {
+      switch (name) {
+        case 'breed':
+          if (!value || (typeof value === 'string' && value.trim().length === 0))
+            return 'Breed is required';
+          if (typeof value === 'string' && value.trim().length < 2)
+            return 'Breed must be at least 2 characters';
+          break;
+        case 'age': {
+          if (!value || (typeof value === 'string' && value.trim().length === 0))
+            return 'Age is required';
+          const ageNum = parseInt(value as string);
+          if (isNaN(ageNum) || ageNum < 0) return 'Age must be a valid number';
+          break;
+        }
+        case 'image': {
+          if (!value) return 'Image is required';
+          if (value instanceof File) {
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!validTypes.includes(value.type))
+              return 'Only image files are allowed (JPEG, PNG, WebP, GIF)';
+            if (value.size > 5 * 1024 * 1024) return 'Image must be smaller than 5MB';
+          }
+          break;
+        }
+        case 'quantity': {
+          if (!value) return 'Quantity is required';
+          const qty = parseInt(value as string);
+          if (isNaN(qty) || qty <= 0) return 'Quantity must be a positive number';
+          break;
+        }
+        case 'weight': {
+          if (!value) return 'Estimated weight is required';
+          const wt = parseFloat(value as string);
+          if (isNaN(wt) || wt <= 0) return 'Weight must be a positive number';
+          break;
+        }
+        case 'location':
+          if (!value || (typeof value === 'string' && value.trim().length === 0))
+            return 'Location is required';
+          if (typeof value === 'string' && value.trim().length < 3)
+            return 'Location must be at least 3 characters';
+          break;
+        case 'appraisedValue': {
+          if (!value) return 'Appraised value is required';
+          const val = parseInt(value as string);
+          if (isNaN(val) || val <= 0) return 'Appraised value must be a positive number';
+          break;
+        }
       }
-      case 'weight': {
-        if (!value) return 'Estimated weight is required';
-        const wt = parseFloat(value);
-        if (isNaN(wt) || wt <= 0) return 'Weight must be a positive number';
-        break;
-      }
-      case 'location':
-        if (!value || value.trim().length === 0) return 'Location is required';
-        if (value.trim().length < 3) return 'Location must be at least 3 characters';
-        break;
-      case 'appraisedValue': {
-        if (!value) return 'Appraised value is required';
-        const val = parseInt(value);
-        if (isNaN(val) || val <= 0) return 'Appraised value must be a positive number';
-        break;
-      }
-    }
-    return undefined;
-  }, []);
+      return undefined;
+    },
+    []
+  );
 
-  const validateImage = (file: File): string | undefined => {
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      return 'Only JPG, PNG, and WebP images are accepted';
-    }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return 'Image must be smaller than 5 MB';
-    }
-    return undefined;
+  const handleChange = (name: keyof FormData, value: string | File | null) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setImageFile(null);
+    const file = e.target.files?.[0] || null;
+    handleChange('image', file);
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
       setImagePreview(null);
-      setImageError(undefined);
-      return;
     }
-
-    const err = validateImage(file);
-    if (err) {
-      setImageError(err);
-      setImageFile(null);
-      setImagePreview(null);
-      // Reset the input so the user can re-select
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    setImageError(undefined);
-    setImageFile(file);
-    // Revoke previous preview URL
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(URL.createObjectURL(file));
-  };
-
-  const removeImage = () => {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImageFile(null);
-    setImagePreview(null);
-    setImageError(undefined);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleChange = (name: keyof FormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
   };
 
   const validateForm = (): boolean => {
@@ -210,13 +228,13 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!validateForm()) return;
     setShowConfirm(true);
   };
 
   const registerCollateral = async () => {
     setLoading(true);
-    setStatus(null);
     try {
       // Build multipart/form-data so the image travels alongside the other fields
       const body = new FormData();
@@ -230,8 +248,13 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
 
       const res = await fetch(`${API}/api/v1/collateral/register`, {
         method: 'POST',
-        // Do NOT set Content-Type — the browser sets it automatically with the boundary
-        body,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: walletAddress,
+          animal_type: formData.animalType,
+          count: parseInt(formData.quantity),
+          appraised_value: parseInt(formData.appraisedValue),
+        }),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -242,7 +265,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
       });
       const result = await submitSignedXdr(signedTxXdr);
-      setStatus(`Collateral registered successfully! ID: ${result}`);
+      toast.success(`Collateral registered successfully! ID: ${result}`);
       localStorage.removeItem(STORAGE_KEY);
       setLastSaved(null);
       setFormData({
@@ -252,12 +275,17 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         healthStatus: 'good',
         location: '',
         appraisedValue: '',
+        breed: '',
+        age: '',
+        image: null,
       });
+      setImagePreview(null);
       setErrors({});
-      removeImage();
+      setSubmitAttempted(false);
       onSuccess?.(result);
-    } catch (e: unknown) {
-      setStatus(`error:${e instanceof Error ? e.message : String(e)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Registration failed');
+      setStatus(`error:${e instanceof Error ? e.message : 'Registration failed'}`);
     } finally {
       setLoading(false);
     }
@@ -286,7 +314,9 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
       <h2 className="text-xl font-semibold text-brown-700">Register Livestock Collateral</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <ErrorSummary errors={submitAttempted ? toSummaryErrors(errors, FIELD_IDS) : []} />
         <Select
+          id={FIELD_IDS.animalType}
           label="Animal Type"
           required
           value={formData.animalType}
@@ -301,6 +331,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         </Select>
 
         <Input
+          id={FIELD_IDS.quantity}
           label="Quantity"
           required
           type="number"
@@ -312,6 +343,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Input
+          id={FIELD_IDS.weight}
           label="Estimated Weight (kg)"
           required
           type="number"
@@ -324,6 +356,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Select
+          id={FIELD_IDS.healthStatus}
           label="Health Status"
           required
           value={formData.healthStatus}
@@ -338,6 +371,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         </Select>
 
         <Input
+          id={FIELD_IDS.location}
           label="Location"
           required
           type="text"
@@ -349,6 +383,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Input
+          id={FIELD_IDS.appraisedValue}
           label="Appraised Value (stroops)"
           required
           type="number"
@@ -359,81 +394,86 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           disabled={loading}
         />
 
-        {/* ── Image upload ────────────────────────────────────────────── */}
-        <div>
-          <Label htmlFor="livestock-image">
-            Livestock Photo{' '}
-            <span className="text-brown-400 font-normal text-xs">
-              (optional · JPG / PNG / WebP · max 5 MB)
-            </span>
-          </Label>
+        <Input
+          id={FIELD_IDS.breed}
+          label="Breed"
+          required
+          type="text"
+          placeholder="e.g., Holstein, Boer, Merino"
+          value={formData.breed}
+          onChange={(e) => handleChange('breed', e.target.value)}
+          error={errors.breed}
+          disabled={loading}
+        />
 
-          {imagePreview ? (
-            /* Preview panel */
-            <div className="mt-2 relative inline-block">
-              <Image
+        <Input
+          id={FIELD_IDS.age}
+          label="Age (years)"
+          required
+          type="number"
+          placeholder="Age of the animal"
+          value={formData.age}
+          onChange={(e) => handleChange('age', e.target.value)}
+          error={errors.age}
+          disabled={loading}
+        />
+
+        <div className="space-y-2">
+          <label
+            htmlFor={FIELD_IDS.image}
+            className="block text-sm font-medium text-brown-700 dark:text-cream-50"
+          >
+            Animal Photo <span className="text-error">*</span>
+          </label>
+          <input
+            id={FIELD_IDS.image}
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            disabled={loading}
+            className="block w-full text-sm text-brown-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold file:text-brown hover:file:bg-gold/80 disabled:opacity-50"
+            aria-label="Upload animal photo"
+          />
+          {errors.image && <p className="text-sm text-error">{errors.image}</p>}
+          {imagePreview && (
+            <div className="mt-3 relative">
+              <img
                 src={imagePreview}
-                alt="Livestock preview"
-                width={160}
-                height={160}
-                unoptimized
-                className="h-40 w-auto max-w-full rounded-xl object-cover border border-brown-200"
+                alt="Preview"
+                className="max-h-48 rounded-lg border border-brown/10"
               />
               <button
                 type="button"
-                onClick={removeImage}
-                disabled={loading}
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, image: null }));
+                  setImagePreview(null);
+                  setErrors((prev) => ({ ...prev, image: undefined }));
+                }}
+                className="absolute top-2 right-2 bg-error text-white rounded-full p-1 hover:bg-error/80"
                 aria-label="Remove image"
-                className="absolute top-1 right-1 bg-white/90 hover:bg-white text-error rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow transition disabled:opacity-50"
               >
                 ✕
               </button>
-              <p className="mt-1 text-xs text-brown-500 truncate max-w-xs">{imageFile?.name}</p>
             </div>
-          ) : (
-            /* Upload trigger */
-            <label
-              htmlFor="livestock-image"
-              className={`mt-2 flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-6 cursor-pointer transition
-                ${
-                  imageError
-                    ? 'border-error bg-error/5 hover:bg-error/10'
-                    : 'border-brown-300 bg-brown-50 hover:bg-brown-100'
-                }
-                ${loading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-            >
-              <span className="text-3xl" aria-hidden="true">
-                📷
-              </span>
-              <span className="text-sm text-brown-600 font-medium">Click to upload a photo</span>
-              <span className="text-xs text-brown-400">JPG, PNG or WebP · up to 5 MB</span>
-            </label>
           )}
-
-          <input
-            ref={fileInputRef}
-            id="livestock-image"
-            type="file"
-            accept={ACCEPTED_TYPES.join(',')}
-            onChange={handleImageChange}
-            disabled={loading}
-            className="sr-only"
-            aria-describedby={imageError ? 'livestock-image-error' : undefined}
-            aria-invalid={!!imageError}
-          />
-
-          {imageError && <FieldError id="livestock-image-error" message={imageError} />}
         </div>
-        {/* ─────────────────────────────────────────────────────────────── */}
 
-        <motion.div
+        <motion.button
+          type="submit"
           variants={reduced ? undefined : submitVariants}
           animate={loading ? 'loading' : 'idle'}
+          className="w-full bg-brown text-cream py-2.5 rounded-xl font-semibold hover:bg-brown/80 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          disabled={loading}
         >
-          <Button type="submit" fullWidth loading={loading} disabled={loading || hasErrors}>
-            {loading ? 'Processing…' : 'Register Collateral'}
-          </Button>
-        </motion.div>
+          {loading ? (
+            <>
+              <Spinner />
+              Processing…
+            </>
+          ) : (
+            'Register Collateral'
+          )}
+        </motion.button>
       </form>
 
       {lastSaved && !loading && (
