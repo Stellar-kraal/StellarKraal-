@@ -8,6 +8,8 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { submitVariants } from '@/lib/animations';
 import { Input, Select, Button, ErrorSummary, toSummaryErrors } from '@/components/ui';
 import { useToast } from '@/components/toast';
+import { throwIfNotOk } from '@/lib/api';
+import { classifyApiError } from '@/lib/apiErrorToast';
 
 interface Props {
   walletAddress: string;
@@ -76,7 +78,6 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   // Image upload state
@@ -256,10 +257,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           appraised_value: parseInt(formData.appraisedValue),
         }),
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Registration failed');
-      }
+      await throwIfNotOk(res);
       const { xdr } = await res.json();
       const { signedTxXdr } = await signTransaction(xdr, {
         network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
@@ -284,8 +282,10 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
       setSubmitAttempted(false);
       onSuccess?.(result);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Registration failed');
-      setStatus(`error:${e instanceof Error ? e.message : 'Registration failed'}`);
+      // #532: classify network / 4xx / 5xx failures into the right toast.
+      const { variant, message } = classifyApiError(e);
+      toast[variant](message);
+      setStatus(`error:${message}`);
     } finally {
       setLoading(false);
     }

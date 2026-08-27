@@ -7,9 +7,13 @@ import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import ThemeProvider, { ThemeScript } from "@/components/ThemeProvider";
 import { ToastProvider, ToastContainer } from "@/components/toast";
+import SWRErrorToastConfig from "@/components/SWRErrorToastConfig";
 import SkipToContent from "@/components/SkipToContent";
 import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
 import PrintDateScript from "@/components/PrintDateScript";
+import TopProgressBar from "@/components/TopProgressBar";
+import SessionTimeoutBanner from "@/components/SessionTimeoutBanner";
+import WhatsNewProvider from "@/components/WhatsNewProvider";
 
 export const metadata: Metadata = {
   title: "StellarKraal — Livestock Micro-Lending",
@@ -41,6 +45,7 @@ export default function RootLayout({
         <ThemeProvider>
           <KeyboardShortcutsProvider>
             <ToastProvider>
+            <SWRErrorToastConfig>
               <SkipToContent />
               <TopProgressBar />
               <SessionTimeoutBanner />
@@ -107,6 +112,7 @@ export default function RootLayout({
             </main>
             <ToastContainer />
             <WhatsNewProvider />
+            </SWRErrorToastConfig>
             </ToastProvider>
           </KeyboardShortcutsProvider>
         </ThemeProvider>

@@ -65,7 +65,7 @@ describe('LoanForm', () => {
     );
   });
 
-  it('shows error toast when collateral registration fails', async () => {
+  it('shows a connection-failed toast when collateral registration fails on a network error (#532)', async () => {
     fetchMock.mockRejectedValue(new Error('Network error'));
 
     renderWithToast(<LoanForm walletAddress="GTEST" />);
@@ -77,7 +77,7 @@ describe('LoanForm', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole('alert').some((el) => el.textContent?.includes('Network error'))
+        screen.getAllByRole('alert').some((el) => el.textContent?.includes('Connection failed'))
       ).toBe(true)
     );
   });
@@ -111,7 +111,7 @@ describe('LoanForm', () => {
     );
   });
 
-  it('shows error toast when loan request fails', async () => {
+  it('shows a connection-failed toast when loan request fails on a network error (#532)', async () => {
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => ({ xdr: 'xdr1' }) })
       .mockRejectedValueOnce(new Error('Loan failed'));
@@ -134,7 +134,7 @@ describe('LoanForm', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole('alert').some((el) => el.textContent?.includes('Loan failed'))
+        screen.getAllByRole('alert').some((el) => el.textContent?.includes('Connection failed'))
       ).toBe(true)
     );
   });

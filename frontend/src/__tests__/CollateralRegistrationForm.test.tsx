@@ -189,6 +189,7 @@ describe('CollateralRegistrationForm', () => {
   it('displays error toast on submission failure', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
+      status: 400,
       json: async () => ({ error: 'Registration failed' }),
     });
 

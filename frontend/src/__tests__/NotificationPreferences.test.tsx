@@ -66,10 +66,10 @@ describe("NotificationPreferences", () => {
     expect(mockSuccess).toHaveBeenCalledWith("Notification preference saved.");
   });
 
-  it("shows error toast and reverts on PATCH failure", async () => {
+  it("shows a 'Server error' toast and reverts on a 5xx PATCH failure (#532)", async () => {
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => defaultSettings })
-      .mockResolvedValueOnce({ ok: false, json: async () => ({}) });
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
 
     await act(async () => {
       render(<NotificationPreferences wallet="GTEST" />);
@@ -80,8 +80,46 @@ describe("NotificationPreferences", () => {
     });
 
     await waitFor(() => expect(mockError).toHaveBeenCalled());
-    expect(mockError).toHaveBeenCalledWith("Failed to save preference. Please try again.");
+    expect(mockError).toHaveBeenCalledWith("Server error");
     // Reverted: toggle should be back to true
     expect(screen.getByLabelText("Health factor alerts").getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("shows the API's own message in the toast on a 4xx PATCH failure (#532)", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => defaultSettings })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "wallet is required" }),
+      });
+
+    await act(async () => {
+      render(<NotificationPreferences wallet="GTEST" />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Health factor alerts"));
+    });
+
+    await waitFor(() => expect(mockError).toHaveBeenCalled());
+    expect(mockError).toHaveBeenCalledWith("wallet is required");
+  });
+
+  it("shows a connection-failed toast on a network error (#532)", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => defaultSettings })
+      .mockRejectedValueOnce(new Error("network down"));
+
+    await act(async () => {
+      render(<NotificationPreferences wallet="GTEST" />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Health factor alerts"));
+    });
+
+    await waitFor(() => expect(mockError).toHaveBeenCalled());
+    expect(mockError).toHaveBeenCalledWith("Connection failed – please retry");
   });
 });

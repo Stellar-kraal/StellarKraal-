@@ -60,13 +60,13 @@ describe("Toast notification system", () => {
     expect(alerts).toHaveLength(2);
   });
 
-  it("auto-dismisses after 4 seconds", async () => {
+  it("auto-dismisses after 5 seconds (#532)", async () => {
     renderWithProvider(<TestComponent />);
     fireEvent.click(screen.getByText("Trigger Success"));
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
     act(() => {
-      jest.advanceTimersByTime(4000);
+      jest.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {

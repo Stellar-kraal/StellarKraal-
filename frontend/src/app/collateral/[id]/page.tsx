@@ -9,6 +9,8 @@ import ErrorState from "@/components/ErrorState";
 import DetailSkeleton from "@/components/DetailSkeleton";
 import CollateralLocationSection from "@/components/CollateralLocationSection";
 import LiquidationThresholdBadge from "@/components/LiquidationThresholdBadge";
+import TransactionHistory from "@/components/TransactionHistory";
+import { formatXlmNumber } from "@/lib/formatMoney";
 
 interface AppraisalEntry {
   date: string;
@@ -265,6 +267,11 @@ export default function CollateralDetailPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Transactions tied to this collateral — #530 */}
+      <div className="mt-6" data-print="hide">
+        <TransactionHistory collateralId={record.id} />
       </div>
 
       {/* Price history chart — hidden when printing (canvas-based) */}

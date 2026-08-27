@@ -1603,6 +1603,9 @@ app.get(
     const borrower = req.query.borrower as string | undefined;
     const type = req.query.type as TransactionType | undefined;
     const status = req.query.status as TransactionStatus | undefined;
+    const loanId = typeof req.query.loanId === 'string' ? req.query.loanId : undefined;
+    const collateralId =
+      typeof req.query.collateralId === 'string' ? req.query.collateralId : undefined;
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
     const pageRaw = req.query.page !== undefined ? Number(req.query.page) : 1;
@@ -1627,6 +1630,8 @@ app.get(
       borrower,
       type,
       status,
+      loanId,
+      collateralId,
       startDate,
       endDate,
       page: pageRaw,

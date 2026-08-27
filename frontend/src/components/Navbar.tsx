@@ -7,12 +7,14 @@ import {
   ClipboardList,
   Beef,
   Settings,
+  Keyboard,
 } from "lucide-react";
 import { Icon } from "@/components/Icon";
 import ThemeToggle from "./ThemeToggle";
 import { useWallet } from "@/hooks/useWallet";
 import { useAtRiskLoans } from "@/hooks/useAtRiskLoans";
 import NotificationBadge from "@/components/NotificationBadge";
+import { useShortcutsHelp } from "@/components/KeyboardShortcutsProvider";
 
 const NAV_SECTIONS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -48,6 +50,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { address, connect, disconnect } = useWallet();
   const { atRiskCount } = useAtRiskLoans();
+  const shortcutsHelp = useShortcutsHelp();
 
   // Close wallet dropdown when clicking outside
   useEffect(() => {
@@ -148,8 +151,18 @@ export default function Navbar() {
           })}
         </ul>
 
-        {/* Right side: theme toggle + hamburger */}
+        {/* Right side: shortcuts help + theme toggle + hamburger */}
         <div className="flex items-center gap-1">
+          {/* Keyboard shortcuts trigger — #531 */}
+          <button
+            onClick={() => shortcutsHelp?.openShortcutsHelp()}
+            aria-label="Show keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            className="hidden sm:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg transition hover:bg-[var(--color-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--token-accent)]"
+          >
+            <Icon icon={Keyboard} size="sm" className="text-[color:var(--color-text-muted)]" />
+          </button>
+
           {/* Theme toggle — visible on all screen sizes */}
           <ThemeToggle />
 
