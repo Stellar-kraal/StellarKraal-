@@ -42,6 +42,8 @@ export default function RootLayout({
           <KeyboardShortcutsProvider>
             <ToastProvider>
               <SkipToContent />
+              <TopProgressBar />
+              <SessionTimeoutBanner />
               <NetworkMismatchBanner />
               <OfflineBanner />
             {/* Top utility nav — hidden when printing */}
@@ -104,6 +106,7 @@ export default function RootLayout({
             {children}
             </main>
             <ToastContainer />
+            <WhatsNewProvider />
             </ToastProvider>
           </KeyboardShortcutsProvider>
         </ThemeProvider>
