@@ -1,14 +1,13 @@
-"use client";
-import { useState, useEffect, useCallback } from "react";
-import { signTransaction } from "@/lib/freighterClient";
-import { submitSignedXdr } from "@/lib/stellarUtils";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import Spinner from "@/components/Spinner";
-import { motion, useReducedMotion } from "framer-motion";
-import { submitVariants } from "@/lib/animations";
-import { Input, Select, Button } from "@/components/ui";
-import { useToast } from "@/components/toast";
-import FormSuccess from "@/components/FormSuccess";
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { signTransaction } from '@/lib/freighterClient';
+import { submitSignedXdr } from '@/lib/stellarUtils';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import Spinner from '@/components/Spinner';
+import { motion, useReducedMotion } from 'framer-motion';
+import { submitVariants } from '@/lib/animations';
+import { Input, Select, Button, ErrorSummary, toSummaryErrors } from '@/components/ui';
+import { useToast } from '@/components/toast';
 
 interface Props {
   walletAddress: string;
@@ -45,6 +44,18 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const AUTO_SAVE_INTERVAL = 5000;
 const STORAGE_KEY = 'stellarkraal_collateral_form';
 
+const FIELD_IDS: Record<keyof FormErrors, string> = {
+  animalType: 'reg-animal-type',
+  quantity: 'reg-quantity',
+  weight: 'reg-weight',
+  healthStatus: 'reg-health-status',
+  location: 'reg-location',
+  appraisedValue: 'reg-appraised-value',
+  breed: 'reg-breed',
+  age: 'reg-age',
+  image: 'reg-image',
+};
+
 export default function CollateralRegistrationForm({ walletAddress, onSuccess }: Props) {
   const reduced = useReducedMotion();
   const toast = useToast();
@@ -60,6 +71,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
     image: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -222,6 +234,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!validateForm()) return;
     setShowConfirm(true);
   };
@@ -251,11 +264,11 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
       localStorage.removeItem(STORAGE_KEY);
       setLastSaved(null);
       setErrors({});
-      setSuccessId(result);
+      setSubmitAttempted(false);
       onSuccess?.(result);
-    } catch (e: any) {
-      toast.error(e.message || "Registration failed");
-      setStatus(`error:${e.message}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Registration failed');
+      setStatus(`error:${e instanceof Error ? e.message : 'Registration failed'}`);
     } finally {
       setLoading(false);
     }
@@ -320,7 +333,9 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
       <h2 className="text-xl font-semibold text-brown-700">Register Livestock Collateral</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <ErrorSummary errors={submitAttempted ? toSummaryErrors(errors, FIELD_IDS) : []} />
         <Select
+          id={FIELD_IDS.animalType}
           label="Animal Type"
           required
           value={formData.animalType}
@@ -335,6 +350,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         </Select>
 
         <Input
+          id={FIELD_IDS.quantity}
           label="Quantity"
           required
           type="number"
@@ -346,6 +362,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Input
+          id={FIELD_IDS.weight}
           label="Estimated Weight (kg)"
           required
           type="number"
@@ -358,6 +375,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Select
+          id={FIELD_IDS.healthStatus}
           label="Health Status"
           required
           value={formData.healthStatus}
@@ -372,6 +390,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         </Select>
 
         <Input
+          id={FIELD_IDS.location}
           label="Location"
           required
           type="text"
@@ -383,6 +402,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Input
+          id={FIELD_IDS.appraisedValue}
           label="Appraised Value (stroops)"
           required
           type="number"
@@ -394,6 +414,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Input
+          id={FIELD_IDS.breed}
           label="Breed"
           required
           type="text"
@@ -405,6 +426,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <Input
+          id={FIELD_IDS.age}
           label="Age (years)"
           required
           type="number"
@@ -416,10 +438,14 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         />
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-brown-700">
+          <label
+            htmlFor={FIELD_IDS.image}
+            className="block text-sm font-medium text-brown-700 dark:text-cream-50"
+          >
             Animal Photo <span className="text-error">*</span>
           </label>
           <input
+            id={FIELD_IDS.image}
             type="file"
             accept="image/*"
             onChange={handleImageChange}
@@ -454,7 +480,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
         <motion.button
           type="submit"
           variants={reduced ? undefined : submitVariants}
-          animate={loading ? "loading" : "idle"}
+          animate={loading ? 'loading' : 'idle'}
           className="w-full bg-brown text-cream py-2.5 rounded-xl font-semibold hover:bg-brown/80 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           disabled={loading}
         >

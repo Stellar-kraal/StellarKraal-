@@ -62,10 +62,16 @@ coverage/
 # Jest / Vitest snapshots
 *.snap
 **/__snapshots__/
+# Exception: allow Playwright visual regression baseline PNGs in tests/visual/__snapshots__
+!frontend/tests/visual/__snapshots__/
+!frontend/tests/visual/__snapshots__/**
 # Playwright
 playwright-report/
 test-results/
 .playwright/
+# Visual regression baseline images — stored in tests/visual/__snapshots__/
+# PNGs committed as baselines are tracked; diff/actual outputs from failed
+# runs go to playwright-report/ which is excluded above.
 # Audit reports (generated output)
 frontend/audit-reports/
 
@@ -100,7 +106,38 @@ infrastructure/terraform.zip
 # ── TypeScript incremental build info ────────────────────────────────────────
 *.tsbuildinfo
 **/*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+
+# ── Kiro AI agent workspace ────────────────────────────────────────────────────
+.kiro/
+
+# ── Claude AI agent settings ──────────────────────────────────────────────────
+.claude/
+
+# ── Cargo / Rust build output ─────────────────────────────────────────────────
+cargo_out.txt
+
+# ── Stray / internal session files ────────────────────────────────────────────
+# (these are working-session artefacts, not project source)
+stellarkreal
+tatus
+PUSH_SUCCESS.md
+PR_DESCRIPTIONS.md
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
 .cache/
+
+# ── Generated / ephemeral docs not part of source ────────────────────────────
+cargo_out.txt
+tatus
+stellarkreal
+PUSH_SUCCESS.md
+PR_DESCRIPTIONS.md
+IMPLEMENTATION_SUMMARY*.md
+FEATURES_COMPLETED.md
+TRANSACTION_HISTORY_FEATURE.md
+TRANSACTION_INTEGRATION_GUIDE.md
+DARK_MODE_AUDIT.md
+ACCESSIBILITY_IMPLEMENTATION.md
+STAGING.md
