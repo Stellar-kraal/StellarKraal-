@@ -40,7 +40,7 @@ interface WizardCtx extends WizardState {
   canProceed: () => boolean;
 }
 
-function makeItem(overrides?: Partial<CollateralItem>): CollateralItem {
+export function makeItem(overrides?: Partial<CollateralItem>): CollateralItem {
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     animalType: "cattle",
@@ -52,6 +52,15 @@ function makeItem(overrides?: Partial<CollateralItem>): CollateralItem {
 }
 
 const defaults: WizardState = {
+  collaterals: [
+    {
+      id: 'initial',
+      animalType: 'cattle',
+      count: '',
+      appraisedValue: '',
+      collateralId: '',
+    },
+  ],
   animalType: 'cattle',
   count: '',
   appraisedValue: '',
@@ -95,6 +104,10 @@ export function LoanWizardProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, [key]: value }));
   }
 
+  function setCollaterals(items: CollateralItem[]) {
+    setState((s) => ({ ...s, collaterals: items }));
+  }
+
   function canProceed(): boolean {
     if (state.step === 1) {
       return (
@@ -127,7 +140,7 @@ export function LoanWizardProvider({ children }: { children: ReactNode }) {
 
   return (
     <LoanWizardContext.Provider
-      value={{ ...state, setField, nextStep, prevStep, reset, canProceed }}
+      value={{ ...state, setField, setCollaterals, nextStep, prevStep, reset, canProceed }}
     >
       {children}
     </LoanWizardContext.Provider>

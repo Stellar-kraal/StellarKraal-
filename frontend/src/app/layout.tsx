@@ -10,6 +10,10 @@ import { ToastProvider, ToastContainer } from "@/components/toast";
 import SkipToContent from "@/components/SkipToContent";
 import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
 import PrintDateScript from "@/components/PrintDateScript";
+import PageTransition from "@/components/PageTransition";
+import TopProgressBar from "@/components/TopProgressBar";
+import SessionTimeoutBanner from "@/components/SessionTimeoutBanner";
+import WhatsNewProvider from "@/components/WhatsNewProvider";
 
 export const metadata: Metadata = {
   title: "StellarKraal — Livestock Micro-Lending",
@@ -103,7 +107,7 @@ export default function RootLayout({
             <Navbar />
             <MobileBottomNav />
             <main id="main-content" className="pb-20 md:pb-0">
-            {children}
+              <PageTransition>{children}</PageTransition>
             </main>
             <ToastContainer />
             <WhatsNewProvider />

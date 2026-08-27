@@ -5,6 +5,8 @@ import { signTransaction } from "@/lib/freighterClient";
 import { submitSignedXdr } from "@/lib/stellarUtils";
 import { invalidateCollateral } from "@/lib/api";
 import Spinner from "@/components/Spinner";
+import { FieldTooltip } from "@/components/Tooltip";
+import { WIZARD_FIELD_TOOLTIPS } from "@/lib/wizardFieldTooltips";
 
 const ANIMAL_TYPES: { value: AnimalType; label: string; emoji: string }[] = [
   { value: "cattle", label: "Cattle", emoji: "🐄" },
@@ -60,7 +62,6 @@ export default function StepCollateral({ walletAddress }: Props) {
   // ── Pointer drag ─────────────────────────────────────────────────────────────
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>, index: number) {
-    // Only drag from the handle
     dragIndexRef.current = index;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
@@ -102,14 +103,16 @@ export default function StepCollateral({ walletAddress }: Props) {
     setField("loading", true);
     setField("error", null);
     try {
+      // Use first collateral item for the API call
+      const first = collaterals[0];
       const res = await fetch(`${API}/api/collateral/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           owner: walletAddress,
-          animal_type: animalType,
-          count: parseInt(count),
-          appraised_value: parseInt(appraisedValue),
+          animal_type: first.animalType,
+          count: parseInt(first.count),
+          appraised_value: parseInt(first.appraisedValue),
         }),
       });
       if (!res.ok) throw new Error("Registration failed. Please try again.");
@@ -118,7 +121,6 @@ export default function StepCollateral({ walletAddress }: Props) {
         network: process.env.NEXT_PUBLIC_NETWORK || "TESTNET",
       });
       const collateralId = await submitSignedXdr(signedTxXdr);
-      // New collateral registered — drop cached collateral lists so they revalidate.
       invalidateCollateral();
       setField("collateralId", String(collateralId));
       nextStep();
@@ -160,7 +162,6 @@ export default function StepCollateral({ walletAddress }: Props) {
               className="cursor-grab active:cursor-grabbing mt-1 text-brown/30 hover:text-brown/60 select-none focus:outline-none focus:ring-2 focus:ring-gold rounded"
               title="Drag to reorder or use arrow keys"
             >
-              {/* Grip icon */}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <circle cx="5" cy="4" r="1.5" /><circle cx="11" cy="4" r="1.5" />
                 <circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" />
@@ -168,32 +169,101 @@ export default function StepCollateral({ walletAddress }: Props) {
               </svg>
             </div>
 
-      <Input
-        label="Number of Animals"
-        type="number"
-        min="1"
-        placeholder="e.g. 5"
-        value={count}
-        onChange={(e) => setField("count", e.target.value)}
-        disabled={loading}
-      />
+            {/* Item fields */}
+            <div className="flex-1 space-y-3">
+              {/* Animal type */}
+              <div>
+                <div className="flex items-center mb-1">
+                  <span className="text-sm font-medium text-brown">Animal Type</span>
+                  <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.animalType} />
+                </div>
+                <div className="flex gap-2">
+                  {ANIMAL_TYPES.map(({ value, label, emoji }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => updateItem(index, { animalType: value })}
+                      aria-pressed={item.animalType === value}
+                      className={`flex-1 flex flex-col items-center p-2 rounded-xl border-2 text-xs transition-all ${
+                        item.animalType === value
+                          ? "border-gold bg-gold/10"
+                          : "border-brown/20 hover:border-brown/40 bg-white"
+                      }`}
+                    >
+                      <span className="text-lg">{emoji}</span>
+                      <span className="font-medium text-brown">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-      <div>
-        <Input
-          label="Total Appraised Value (stroops)"
-          type="number"
-          min="1"
-          placeholder="e.g. 10000000"
-          value={appraisedValue}
-          onChange={(e) => setField("appraisedValue", e.target.value)}
-          disabled={loading}
-        />
-        {count && appraisedValue && (
-          <p className="text-xs text-brown-400 mt-1">
-            ≈ {(parseInt(appraisedValue) / parseInt(count) / 10_000_000).toFixed(2)} XLM per head
-          </p>
-        )}
-      </div>
+              {/* Quantity */}
+              <div>
+                <div className="flex items-center mb-1">
+                  <span className="text-sm font-medium text-brown">Number of Animals</span>
+                  <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.quantity} />
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 5"
+                  value={item.count}
+                  onChange={(e) => updateItem(index, { count: e.target.value })}
+                  disabled={loading}
+                  aria-label={`Number of animals for item ${index + 1}`}
+                  className="w-full border border-brown/30 rounded-lg px-3 py-2 text-sm text-brown placeholder-brown/40 focus:outline-none focus:ring-2 focus:ring-gold disabled:opacity-50"
+                />
+              </div>
+
+              {/* Appraised Value */}
+              <div>
+                <div className="flex items-center mb-1">
+                  <span className="text-sm font-medium text-brown">Total Appraised Value (stroops)</span>
+                  <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.appraisedValue} />
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 10000000"
+                  value={item.appraisedValue}
+                  onChange={(e) => updateItem(index, { appraisedValue: e.target.value })}
+                  disabled={loading}
+                  aria-label={`Appraised value for item ${index + 1}`}
+                  className="w-full border border-brown/30 rounded-lg px-3 py-2 text-sm text-brown placeholder-brown/40 focus:outline-none focus:ring-2 focus:ring-gold disabled:opacity-50"
+                />
+                {item.count && item.appraisedValue && (
+                  <p className="text-xs text-brown-400 mt-1">
+                    ≈{" "}
+                    {(parseInt(item.appraisedValue) / parseInt(item.count) / 10_000_000).toFixed(2)}{" "}
+                    XLM per head
+                  </p>
+                )}
+              </div>
+
+              {/* Remove button (only if more than one item) */}
+              {collaterals.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeItem(index)}
+                  className="text-xs text-error hover:text-error/80 transition"
+                  aria-label={`Remove collateral item ${index + 1}`}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Add more collateral */}
+      <button
+        type="button"
+        onClick={addItem}
+        className="w-full border-2 border-dashed border-brown/20 rounded-xl py-3 text-sm text-brown/50 hover:border-brown/40 hover:text-brown/70 transition"
+      >
+        + Add another animal type
+      </button>
 
       {error && (
         <div role="alert" className="bg-error-light border border-error rounded-xl px-4 py-3 text-error-dark text-sm">
@@ -202,6 +272,7 @@ export default function StepCollateral({ walletAddress }: Props) {
       )}
 
       <button
+        type="button"
         onClick={handleRegister}
         disabled={loading}
         className="w-full bg-brown text-cream py-3 rounded-xl font-semibold hover:bg-brown/80 transition disabled:opacity-50 flex items-center justify-center gap-2"
