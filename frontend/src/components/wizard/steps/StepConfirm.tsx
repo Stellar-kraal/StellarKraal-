@@ -1,17 +1,20 @@
-"use client";
-import { useState } from "react";
-import { useWizard } from "@/context/LoanWizardContext";
-import { signTransaction } from "@/lib/freighterClient";
-import { submitSignedXdr } from "@/lib/stellarUtils";
-import Spinner from "@/components/Spinner";
+'use client';
+import { useState } from 'react';
+import { useWizard } from '@/context/LoanWizardContext';
+import { useButtonState } from '@/hooks/useButtonState';
+import { signTransaction } from '@/lib/freighterClient';
+import { submitSignedXdr } from '@/lib/stellarUtils';
+import { invalidateLoans } from '@/lib/api';
+import { Button } from '@/components/ui';
+import { formatXlmFromStroops } from '@/lib/formatMoney';
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const TERM_RATES: Record<string, string> = {
-  "7": "2%",
-  "30": "5%",
-  "90": "12%",
-  "180": "20%",
+  '7': '2%',
+  '30': '5%',
+  '90': '12%',
+  '180': '20%',
 };
 
 interface Props {
@@ -20,24 +23,31 @@ interface Props {
 
 export default function StepConfirm({ walletAddress }: Props) {
   const {
-    animalType, count, appraisedValue,
-    collateralId, loanAmount, loanTermDays,
-    loading, error, setField, prevStep, reset,
+    animalType,
+    count,
+    collateralId,
+    loanAmount,
+    loanTermDays,
+    error,
+    setField,
+    prevStep,
+    reset,
   } = useWizard();
 
   const [loanId, setLoanId] = useState<string | null>(null);
+  const submitButton = useButtonState();
 
-  const rate = TERM_RATES[loanTermDays] || "5%";
-  const fee = Math.floor(parseInt(loanAmount || "0") * parseFloat(rate) / 100);
-  const totalRepay = parseInt(loanAmount || "0") + fee;
+  const rate = TERM_RATES[loanTermDays] || '5%';
+  const fee = Math.floor((parseInt(loanAmount || '0') * parseFloat(rate)) / 100);
+  const totalRepay = parseInt(loanAmount || '0') + fee;
 
   async function handleSubmit() {
-    setField("loading", true);
-    setField("error", null);
+    submitButton.setLoading();
+    setField('error', null);
     try {
       const res = await fetch(`${API}/api/loan/request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           borrower: walletAddress,
           collateral_id: parseInt(collateralId),
@@ -45,17 +55,20 @@ export default function StepConfirm({ walletAddress }: Props) {
           term_days: parseInt(loanTermDays),
         }),
       });
-      if (!res.ok) throw new Error("Loan request failed. Please try again.");
+      if (!res.ok) throw new Error('Loan request failed. Please try again.');
       const { xdr } = await res.json();
       const { signedTxXdr } = await signTransaction(xdr, {
-        network: process.env.NEXT_PUBLIC_NETWORK || "TESTNET",
+        network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
       });
       const result = await submitSignedXdr(signedTxXdr);
       setLoanId(String(result));
-    } catch (e: any) {
-      setField("error", e.message || "Something went wrong.");
-    } finally {
-      setField("loading", false);
+      // New loan created — drop cached loan lists so they revalidate.
+      invalidateLoans();
+      submitButton.setSuccess();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Something went wrong.';
+      setField('error', message);
+      submitButton.setError();
     }
   }
 
@@ -78,7 +91,9 @@ export default function StepConfirm({ walletAddress }: Props) {
         <div className="bg-white border border-brown/20 rounded-xl px-5 py-4 text-left space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-brown/60">Amount received</span>
-            <span className="font-semibold text-brown">{parseInt(loanAmount).toLocaleString()} stroops</span>
+            <span className="font-semibold text-brown">
+              {formatXlmFromStroops(parseInt(loanAmount))}
+            </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-brown/60">Due in</span>
@@ -86,15 +101,12 @@ export default function StepConfirm({ walletAddress }: Props) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-brown/60">Total to repay</span>
-            <span className="font-bold text-brown">{totalRepay.toLocaleString()} stroops</span>
+            <span className="font-bold text-brown">{formatXlmFromStroops(totalRepay)}</span>
           </div>
         </div>
-        <button
-          onClick={reset}
-          className="w-full border-2 border-brown/30 text-brown py-3 rounded-xl font-semibold hover:border-brown/60 transition"
-        >
+        <Button variant="ghost" fullWidth onClick={reset}>
           Request Another Loan
-        </button>
+        </Button>
       </div>
     );
   }
@@ -104,18 +116,23 @@ export default function StepConfirm({ walletAddress }: Props) {
       <div>
         <h2 className="text-2xl font-bold text-brown">Final Summary</h2>
         <p className="text-brown/60 mt-1 text-sm">
-          This is your last chance to review before the transaction is signed.
+          This is a read-only review. Please check every detail before signing — it cannot be
+          changed once submitted.
         </p>
       </div>
 
-      {/* Summary card */}
-      <div className="bg-cream border-2 border-brown/20 rounded-2xl p-5 space-y-3">
+      {/* Read-only summary card */}
+      <div
+        className="bg-cream border-2 border-brown/20 rounded-2xl p-5 space-y-3"
+        aria-label="Loan summary"
+      >
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-xs text-brown/50 uppercase tracking-wider font-medium">You're borrowing</p>
+            <p className="text-xs text-brown/50 uppercase tracking-wider font-medium">
+              You're borrowing
+            </p>
             <p className="text-3xl font-bold text-brown mt-0.5">
-              {parseInt(loanAmount).toLocaleString()}
-              <span className="text-base font-normal text-brown/50 ml-1">stroops</span>
+              {formatXlmFromStroops(parseInt(loanAmount))}
             </p>
           </div>
           <div className="bg-brown/10 rounded-xl px-3 py-1.5 text-right">
@@ -126,6 +143,30 @@ export default function StepConfirm({ walletAddress }: Props) {
           </div>
         </div>
 
+        <dl className="border-t border-brown/10 pt-3 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Collateral ID</dt>
+            <dd className="font-medium text-brown font-mono">{collateralId}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Borrower wallet</dt>
+            <dd
+              className="font-medium text-brown font-mono truncate max-w-[60%]"
+              title={walletAddress}
+            >
+              {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Loan term</dt>
+            <dd className="font-medium text-brown">{loanTermDays} days</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Interest rate</dt>
+            <dd className="font-medium text-brown">{rate}</dd>
+          </div>
+        </dl>
+
         <div className="border-t border-brown/10 pt-3 grid grid-cols-3 gap-3 text-center">
           <div>
             <p className="text-xs text-brown/50">Term</p>
@@ -133,11 +174,11 @@ export default function StepConfirm({ walletAddress }: Props) {
           </div>
           <div>
             <p className="text-xs text-brown/50">Fee</p>
-            <p className="font-semibold text-brown">{fee.toLocaleString()}</p>
+            <p className="font-semibold text-brown">{formatXlmFromStroops(fee)}</p>
           </div>
           <div>
             <p className="text-xs text-brown/50">Repay total</p>
-            <p className="font-semibold text-brown">{totalRepay.toLocaleString()}</p>
+            <p className="font-semibold text-brown">{formatXlmFromStroops(totalRepay)}</p>
           </div>
         </div>
       </div>
@@ -146,8 +187,8 @@ export default function StepConfirm({ walletAddress }: Props) {
       <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
         <span className="text-blue-500 text-lg">🔐</span>
         <p className="text-blue-700 text-sm">
-          Clicking submit will open Freighter to sign the transaction. 
-          Make sure your wallet is unlocked.
+          Clicking submit will open Freighter to sign the transaction. Make sure your wallet is
+          unlocked.
         </p>
       </div>
 
@@ -158,27 +199,22 @@ export default function StepConfirm({ walletAddress }: Props) {
       )}
 
       <div className="flex gap-3">
-        <button
+        <Button
+          variant="ghost"
+          className="flex-1"
           onClick={prevStep}
-          disabled={loading}
-          className="flex-1 border-2 border-brown/30 text-brown py-3 rounded-xl font-semibold hover:border-brown/60 transition disabled:opacity-50"
+          disabled={submitButton.state === 'loading'}
         >
           ← Back
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
+          className="flex-[2]"
           onClick={handleSubmit}
-          disabled={loading}
-          className="flex-[2] bg-gold text-brown py-3 rounded-xl font-bold hover:bg-gold/80 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          state={submitButton.state}
         >
-          {loading ? (
-            <>
-              <Spinner />
-              Submitting…
-            </>
-          ) : (
-            "🚀 Submit Loan Request"
-          )}
-        </button>
+          🚀 Submit Loan Request
+        </Button>
       </div>
     </div>
   );

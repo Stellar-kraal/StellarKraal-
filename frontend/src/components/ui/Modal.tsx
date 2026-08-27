@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import FocusTrap from "focus-trap-react";
 
 export type ModalSize = "sm" | "md" | "lg";
 
@@ -32,8 +33,6 @@ export default function Modal({
   size = "md",
   titleId = "modal-title",
 }: ModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const firstFocusableRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<Element | null>(null);
 
   // Remember the element that opened the modal so we can return focus on close
@@ -45,48 +44,6 @@ export default function Modal({
     }
   }, [open]);
 
-  // Focus the close button when the modal opens
-  useEffect(() => {
-    if (open) {
-      firstFocusableRef.current?.focus();
-    }
-  }, [open]);
-
-  // Escape key dismissal
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!open) return;
-      if (e.key === "Escape") onClose();
-
-      // Focus trap
-      if (e.key === "Tab" && overlayRef.current) {
-        const focusable = Array.from(
-          overlayRef.current.querySelectorAll<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          )
-        ).filter((el) => !el.hasAttribute("disabled"));
-
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    },
-    [open, onClose]
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
   // Prevent body scroll while open
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -96,48 +53,77 @@ export default function Modal({
   if (!open) return null;
 
   const modal = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      aria-modal="true"
-      role="dialog"
-      aria-labelledby={titleId}
-      // Backdrop click
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      ref={overlayRef}
-    >
+    <FocusTrap active={open} focusTrapOptions={{ allowOutsideClick: true, escapeDeactivates: false }}>
+      {/*
+       * Backdrop: frosted-glass effect (backdrop-blur-sm + semi-transparent dark fill).
+       * Fade-in animation via animate-modal-backdrop (defined in globals.css).
+       * Falls back gracefully when backdrop-filter is unsupported.
+       * prefers-reduced-motion: animation is suppressed via the CSS @media rule.
+       */}
       <div
-        className={`relative w-full ${sizeClasses[size]} rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]`}
-        // Prevent clicks inside from closing
-        onMouseDown={(e) => e.stopPropagation()}
+        className={[
+          "fixed inset-0 z-50 flex items-center justify-center p-4",
+          // Frosted-glass backdrop — dark tint + blur
+          "bg-black/40 backdrop-blur-sm",
+          // Fade-in animation
+          "animate-modal-backdrop",
+        ].join(" ")}
+        aria-modal="true"
+        role="dialog"
+        aria-labelledby={titleId}
+        // Backdrop click
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            onClose();
+          }
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-brown-100">
-          <h2 id={titleId} className="text-lg font-bold text-brown-700">
-            {title}
-          </h2>
-          <button
-            ref={firstFocusableRef}
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="text-brown-400 hover:text-brown-700 transition text-2xl leading-none focus:outline-none focus:ring-2 focus:ring-gold/40 rounded"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="px-6 py-4 overflow-y-auto flex-1">{children}</div>
-
-        {/* Footer */}
-        {footer && (
-          <div className="px-6 py-4 border-t border-brown-100 flex justify-end gap-3">
-            {footer}
+        {/*
+         * Panel: fade + scale-up animation via animate-modal-panel.
+         * Starts at 95% scale / opacity 0, resolves to 100% / opacity 1.
+         */}
+        <div
+          className={[
+            "relative w-full flex flex-col max-h-[90vh]",
+            sizeClasses[size],
+            // Base styling
+            "rounded-2xl bg-white dark:bg-brown-800 shadow-2xl",
+            // Entrance animation
+            "animate-modal-panel",
+          ].join(" ")}
+          // Prevent clicks inside from closing
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-brown-100 dark:border-brown-700">
+            <h2 id={titleId} className="text-lg font-bold text-brown-700 dark:text-cream-50" tabIndex={-1}>
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="text-brown-400 hover:text-brown-700 dark:text-brown-300 dark:hover:text-cream-50 transition text-2xl leading-none focus:outline-none focus:ring-2 focus:ring-gold/40 rounded"
+            >
+              ×
+            </button>
           </div>
-        )}
+
+          {/* Body */}
+          <div className="px-6 py-4 overflow-y-auto flex-1">{children}</div>
+
+          {/* Footer */}
+          {footer && (
+            <div className="px-6 py-4 border-t border-brown-100 dark:border-brown-700 flex justify-end gap-3">
+              {footer}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </FocusTrap>
   );
 
   return createPortal(modal, document.body);
