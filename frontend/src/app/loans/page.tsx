@@ -1,12 +1,13 @@
-"use client";
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
-import SearchFilterBar from "@/components/SearchFilterBar";
-import PageTransition from "@/components/PageTransition";
-import Card from "@/components/Card";
-import SkeletonLoanCard from "@/components/SkeletonLoanCard";
-import { badgeVariants } from "@/lib/animations";
+'use client';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { motion, useReducedMotion } from 'framer-motion';
+import Link from 'next/link';
+import SearchFilterBar from '@/components/SearchFilterBar';
+import PageTransition from '@/components/PageTransition';
+import Card from '@/components/Card';
+import SkeletonLoanCard from '@/components/SkeletonLoanCard';
+import { badgeVariants } from '@/lib/animations';
 
 interface Loan {
   id: string;
@@ -23,6 +24,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 function LoanListContent() {
   const searchParams = useSearchParams();
+  const reduced = useReducedMotion();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -69,34 +71,41 @@ function LoanListContent() {
         <ul className="space-y-2">
           {filtered.map((loan) => (
             <li key={loan.id}>
-              <Card>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold text-brown-700 text-sm">Loan #{loan.id}</p>
-                    <p className="text-xs text-brown-500 truncate max-w-xs">{loan.borrower}</p>
+              <Link
+                href={`/loans/${loan.id}`}
+                className="block hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-2xl"
+              >
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-brown-700 text-sm">Loan #{loan.id}</p>
+                      <p className="text-xs text-brown-500 truncate max-w-xs">{loan.borrower}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-brown-700">
+                        {loan.amount.toLocaleString()}
+                      </p>
+                      <motion.span
+                        key={loan.status}
+                        variants={reduced ? undefined : badgeVariants}
+                        initial="initial"
+                        animate="animate"
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          loan.status === 'active'
+                            ? 'bg-success-light text-success-dark'
+                            : loan.status === 'repaid'
+                              ? 'bg-blue-100 text-blue-800'
+                              : loan.status === 'liquidated'
+                                ? 'bg-error-light text-error-dark'
+                                : 'bg-brown-100 text-brown-700'
+                        }`}
+                      >
+                        {loan.status}
+                      </motion.span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-brown-700">{loan.amount.toLocaleString()}</p>
-                    <motion.span
-                      key={loan.status}
-                      variants={reduced ? undefined : badgeVariants}
-                      initial="initial"
-                      animate="animate"
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        loan.status === "active"
-                          ? "bg-success-light text-success-dark"
-                          : loan.status === "repaid"
-                          ? "bg-blue-100 text-blue-800"
-                          : loan.status === "liquidated"
-                          ? "bg-error-light text-error-dark"
-                          : "bg-brown-100 text-brown-700"
-                      }`}
-                    >
-                      {loan.status}
-                    </motion.span>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </Link>
             </li>
           ))}
         </ul>
