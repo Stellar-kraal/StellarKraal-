@@ -10,12 +10,12 @@ import HealthGauge from "@/components/HealthGauge";
 import LoanRepaymentCalculator from "@/components/LoanRepaymentCalculator";
 import TransactionHistory from "@/components/TransactionHistory";
 import SkeletonHealthDashboard from "@/components/SkeletonHealthDashboard";
-import SkeletonDashboard from "@/components/SkeletonDashboard";
 import HelpMenu from "@/components/HelpMenu";
 import OnboardingModal from "@/components/OnboardingModal";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { useHealthFactor } from "@/hooks/useHealthFactor";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { Hero } from "@/components/Hero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -24,20 +24,12 @@ export default function DashboardClient() {
   const [wallet, setWallet] = useState<string | null>(null);
   const [loanId, setLoanId] = useState("");
   const [activeTab, setActiveTab] = useState<TabName>("overview");
-  const [pageLoading, setPageLoading] = useState(true);
-  const [helpMenuOpen, setHelpMenuOpen] = useState(false);
   const { showOnboarding, openOnboarding, closeOnboarding } = useOnboarding();
   const { healthFactor, loading: isHealthLoading, refresh: refreshHealth } = useHealthFactor(loanId);
   
   // Onboarding checklist state
   const [hasCollateral, setHasCollateral] = useState(false);
   const [hasLoan, setHasLoan] = useState(false);
-
-  // Dismiss page-level skeleton after a short defer so the page paint isn't blocked
-  useEffect(() => {
-    const t = setTimeout(() => setPageLoading(false), 400);
-    return () => clearTimeout(t);
-  }, []);
 
   // Detect if user has collateral
   useEffect(() => {
@@ -105,35 +97,18 @@ export default function DashboardClient() {
     setActiveTab("loans");
   }
 
-  // Show page-level skeleton on initial render to avoid blank flash
-  if (pageLoading) {
-    return <SkeletonDashboard />;
-  }
-
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-brown">Dashboard</h1>
-        <button
-          onClick={() => setHelpMenuOpen(true)}
-          className="p-2 text-brown-600 hover:text-brown-700 transition"
-          aria-label="Open help menu"
-          aria-expanded={helpMenuOpen}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-            <circle cx="12" cy="17" r="0.5"/>
-          </svg>
-        </button>
-        <HelpMenu
-          isOpen={helpMenuOpen}
-          onClose={() => setHelpMenuOpen(false)}
-          onShowOnboarding={openOnboarding}
-        />
+    <main className="mx-auto max-w-6xl">
+      <Hero className="py-10 mb-6">
+        <div className="flex items-center justify-between px-4">
+          <h1 className="text-3xl font-bold text-brown">Dashboard</h1>
+          <HelpMenu onShowOnboarding={openOnboarding} />
+        </div>
+      </Hero>
+      <div className="px-4">
+        <OnboardingModal isOpen={showOnboarding} onClose={closeOnboarding} />
+        <WalletConnect onConnect={setWallet} />
       </div>
-      <OnboardingModal isOpen={showOnboarding} onClose={closeOnboarding} />
-      <WalletConnect onConnect={setWallet} />
       {wallet && (
         <>
           <OnboardingChecklist
