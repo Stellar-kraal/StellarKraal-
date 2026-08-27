@@ -4,8 +4,86 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      // ── Keyframe animations ──────────────────────────────────────────────────
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'scale(0.6)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+      },
+      animation: {
+        fadeIn: 'fadeIn 0.6s ease-out both',
+      },
+      // ── Spacing scale (#778) ─────────────────────────────────────────────────
+      // Base-4 scale. Use these token names instead of arbitrary px values.
+      // Mirrors the `spacing` export in frontend/src/lib/design-tokens.ts.
+      spacing: {
+        // Keep Tailwind's default scale by spreading a proxy — custom values
+        // are merged on top via `extend`, so all existing Tailwind spacing
+        // utilities (p-4, m-2, gap-8 …) remain available unchanged.
+        'space-1':  '0.25rem',  //  4 px
+        'space-2':  '0.5rem',   //  8 px
+        'space-3':  '0.75rem',  // 12 px
+        'space-4':  '1rem',     // 16 px
+        'space-6':  '1.5rem',   // 24 px
+        'space-8':  '2rem',     // 32 px
+        'space-12': '3rem',     // 48 px
+        'space-16': '4rem',     // 64 px
+      },
+      // ── Typography scale (#298) ──────────────────────────────────────────────
+      fontSize: {
+        // Static (non-fluid) sizes — used directly via Tailwind utilities
+        "heading-1": ["2.25rem", { lineHeight: "2.5rem", fontWeight: "700" }],
+        "heading-2": ["1.875rem", { lineHeight: "2.25rem", fontWeight: "700" }],
+        "heading-3": ["1.5rem", { lineHeight: "2rem", fontWeight: "600" }],
+        "heading-4": ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],
+        "body-lg": ["1.125rem", { lineHeight: "1.75rem", fontWeight: "400" }],
+        body: ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }],
+        "body-sm": ["0.875rem", { lineHeight: "1.25rem", fontWeight: "400" }],
+        caption: ["0.75rem", { lineHeight: "1rem", fontWeight: "400" }],
+        label: ["0.875rem", { lineHeight: "1.25rem", fontWeight: "500" }],
+        // Fluid responsive sizes — clamp(min, preferred, max)
+        // min: mobile, preferred: viewport-relative, max: desktop
+        // h1: 1.75rem → 2.25rem at 1280px
+        "fluid-h1": ["clamp(1.75rem, 4vw + 0.5rem, 2.75rem)", { lineHeight: "1.15", fontWeight: "700" }],
+        // h2: 1.375rem → 1.875rem
+        "fluid-h2": ["clamp(1.375rem, 3vw + 0.5rem, 2.25rem)", { lineHeight: "1.2", fontWeight: "700" }],
+        // h3: 1.125rem → 1.5rem
+        "fluid-h3": ["clamp(1.125rem, 2.5vw + 0.25rem, 1.75rem)", { lineHeight: "1.3", fontWeight: "600" }],
+        // h4: 1rem → 1.25rem
+        "fluid-h4": ["clamp(1rem, 1.5vw + 0.25rem, 1.375rem)", { lineHeight: "1.4", fontWeight: "600" }],
+        // body: 0.9375rem → 1rem
+        "fluid-body": ["clamp(0.9375rem, 1vw + 0.25rem, 1.0625rem)", { lineHeight: "1.6", fontWeight: "400" }],
+      },
       colors: {
-        // WCAG AA compliant color palette
+        // ── Semantic design tokens (#297) ────────────────────────────────────
+        // Referenced via CSS custom properties so dark mode flips automatically.
+        "color-primary":          "var(--token-primary)",
+        "color-primary-hover":    "var(--token-primary-hover)",
+        "color-on-primary":       "var(--token-on-primary)",
+        "color-secondary":        "var(--token-secondary)",
+        "color-secondary-hover":  "var(--token-secondary-hover)",
+        "color-on-secondary":     "var(--token-on-secondary)",
+        "color-accent":           "var(--token-accent)",
+        "color-danger":           "var(--token-danger)",
+        "color-danger-subtle":    "var(--token-danger-subtle)",
+        "color-on-danger":        "var(--token-on-danger)",
+        "color-success":          "var(--token-success)",
+        "color-success-subtle":   "var(--token-success-subtle)",
+        "color-on-success":       "var(--token-on-success)",
+        "color-warning":          "var(--token-warning)",
+        "color-warning-subtle":   "var(--token-warning-subtle)",
+        "color-on-warning":       "var(--token-on-warning)",
+        "color-surface":          "var(--token-surface)",
+        "color-surface-raised":   "var(--token-surface-raised)",
+        "color-text":             "var(--token-text)",
+        "color-text-subtle":      "var(--token-text-subtle)",
+        "color-text-muted":       "var(--token-text-muted)",
+        "color-text-inverse":     "var(--token-text-inverse)",
+        "color-border":           "var(--token-border)",
+        "color-border-strong":    "var(--token-border-strong)",
+
+        // WCAG AA compliant descriptive palette (kept for backward compat)
         brown: {
           50: "#FDF8F3",
           100: "#F9EFE1", 
