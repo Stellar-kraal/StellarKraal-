@@ -55,6 +55,7 @@ export default function WalletConnect({ onConnect }: Props) {
     const truncated = `${address.slice(0, 8)}…${address.slice(-6)}`;
     return (
       <div
+        data-onboarding-target="wallet"
         className="wc-fade mb-6 flex items-center justify-between gap-4 rounded-xl
           border border-[color:var(--token-border)] bg-[color:var(--token-success-subtle)]
           px-4 py-3 text-sm"
@@ -91,6 +92,7 @@ export default function WalletConnect({ onConnect }: Props) {
     return (
       <div className="mb-6">
         <button
+          data-onboarding-target="wallet"
           disabled
           aria-busy="true"
           aria-label="Connecting to wallet, please wait"
@@ -109,7 +111,7 @@ export default function WalletConnect({ onConnect }: Props) {
   // ── Error ────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="mb-6" role="alert" aria-live="assertive">
+      <div className="mb-6" role="alert" aria-live="assertive" data-onboarding-target="wallet">
         <div
           className="wc-fade flex items-center gap-2 rounded-xl
             border border-[color:var(--token-danger)] bg-[color:var(--token-danger-subtle)]
@@ -146,6 +148,7 @@ export default function WalletConnect({ onConnect }: Props) {
   return (
     <div className="mb-6">
       <button
+          data-onboarding-target="wallet"
         onClick={connect}
         className="wc-fade inline-flex items-center gap-2 rounded-xl
           bg-[color:var(--token-primary)] px-5 py-2.5 text-sm font-semibold

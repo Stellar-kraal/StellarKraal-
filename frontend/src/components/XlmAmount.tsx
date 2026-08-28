@@ -12,7 +12,7 @@ interface Props {
 
 export default function XlmAmount({ xlm, className = '' }: Props) {
   const { currency, enabled } = useCurrencySettings();
-  const { convert, isStale, loading } = useCurrencyConversion();
+  const { convert, isStale } = useCurrencyConversion();
   const [locale, setLocale] = useState('en-US');
 
   useEffect(() => {
@@ -25,22 +25,13 @@ export default function XlmAmount({ xlm, className = '' }: Props) {
     <span className={className}>
       {formatXlm(xlm, locale)}
       {enabled && (
-        <span className="text-brown/60 dark:text-cream/60 text-sm ml-1">
-          {loading && !local ? (
-            '…'
-          ) : local !== null ? (
-            <>
-              ({formatFiat(local, currency, locale)})
-              {isStale && (
-                <span
-                  title="Rate may be outdated (>10 min)"
-                  className="ml-1 text-amber-500 text-xs"
-                >
-                  ⚠
-                </span>
-              )}
-            </>
-          ) : null}
+        <span className="block text-brown/60 dark:text-cream/60 text-sm">
+          {local === null ? '—' : formatFiat(local, currency, locale)}
+          {isStale && local !== null && (
+            <span title="Rate may be outdated (>10 min)" className="ml-1 text-amber-500 text-xs">
+              ⚠
+            </span>
+          )}
         </span>
       )}
     </span>

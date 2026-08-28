@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWizard } from '@/context/LoanWizardContext';
 import { useButtonState } from '@/hooks/useButtonState';
 import { signTransaction } from '@/lib/freighterClient';
 import { submitSignedXdr } from '@/lib/stellarUtils';
 import { invalidateLoans } from '@/lib/api';
 import { Button } from '@/components/ui';
+import { useToast } from '@/components/toast';
 import { formatXlmFromStroops } from '@/lib/formatMoney';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -35,13 +36,17 @@ export default function StepConfirm({ walletAddress }: Props) {
   } = useWizard();
 
   const [loanId, setLoanId] = useState<string | null>(null);
+  const submittingRef = useRef(false);
   const submitButton = useButtonState();
+  const toast = useToast();
 
   const rate = TERM_RATES[loanTermDays] || '5%';
   const fee = Math.floor((parseInt(loanAmount || '0') * parseFloat(rate)) / 100);
   const totalRepay = parseInt(loanAmount || '0') + fee;
 
   async function handleSubmit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     submitButton.setLoading();
     setField('error', null);
     try {
@@ -68,6 +73,8 @@ export default function StepConfirm({ walletAddress }: Props) {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Something went wrong.';
       setField('error', message);
+      toast.error(message);
+      submittingRef.current = false;
       submitButton.setError();
     }
   }

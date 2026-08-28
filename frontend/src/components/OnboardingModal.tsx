@@ -10,6 +10,7 @@ interface OnboardingModalProps {
 
 const ONBOARDING_STEPS = [
   {
+    target: "wallet",
     title: "Connect Your Wallet",
     description:
       "Install the Freighter browser extension and connect your Stellar wallet to get started.",
@@ -26,6 +27,7 @@ const ONBOARDING_STEPS = [
     ),
   },
   {
+    target: "collateral",
     title: "Register Collateral",
     description:
       "Add your livestock as collateral. Each animal is appraised and recorded on-chain to back your loan.",
@@ -43,6 +45,7 @@ const ONBOARDING_STEPS = [
     ),
   },
   {
+    target: "loan",
     title: "Apply for a Loan",
     description:
       "Request a loan against your registered collateral. Funds are disbursed instantly on the Stellar network.",
@@ -63,6 +66,7 @@ const ONBOARDING_STEPS = [
 export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
+  const [spotlight, setSpotlight] = useState<DOMRect | null>(null);
   const triggerRef = useRef<Element | null>(null);
 
   // Reset to first step each time the modal opens
@@ -74,6 +78,28 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
       (triggerRef.current as HTMLElement | null)?.focus();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSpotlight(null);
+      return;
+    }
+
+    const target = document.querySelector(`[data-onboarding-target="${ONBOARDING_STEPS[currentStep].target}"]`);
+    if (!target) {
+      setSpotlight(null);
+      return;
+    }
+
+    const updateSpotlight = () => setSpotlight(target.getBoundingClientRect());
+    updateSpotlight();
+    window.addEventListener("resize", updateSpotlight);
+    window.addEventListener("scroll", updateSpotlight, true);
+    return () => {
+      window.removeEventListener("resize", updateSpotlight);
+      window.removeEventListener("scroll", updateSpotlight, true);
+    };
+  }, [currentStep, isOpen]);
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
@@ -118,10 +144,36 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.stopPropagation();
-            onClose();
+            handleSkip();
           }
         }}
       >
+        {spotlight ? (
+          <>
+            <div className="fixed inset-x-0 top-0 bg-brown-900/80 pointer-events-none" style={{ height: spotlight.top }} />
+            <div
+              className="fixed inset-y-0 left-0 bg-brown-900/80 pointer-events-none"
+              style={{ width: spotlight.left, top: spotlight.top, height: spotlight.height }}
+            />
+            <div
+              className="fixed inset-y-0 right-0 bg-brown-900/80 pointer-events-none"
+              style={{ left: spotlight.right, top: spotlight.top, height: spotlight.height }}
+            />
+            <div className="fixed inset-x-0 bottom-0 bg-brown-900/80 pointer-events-none" style={{ top: spotlight.bottom }} />
+            <div
+              data-testid="onboarding-spotlight"
+              className="fixed rounded-xl border-2 border-gold pointer-events-none"
+              style={{
+                left: spotlight.left - 6,
+                top: spotlight.top - 6,
+                width: spotlight.width + 12,
+                height: spotlight.height + 12,
+              }}
+            />
+          </>
+        ) : (
+          <div className="fixed inset-0 bg-brown-900/80 pointer-events-none" />
+        )}
         <div className="bg-cream-50 dark:bg-brown-800 rounded-2xl max-w-md w-full p-6 relative">
           <button
             onClick={handleSkip}

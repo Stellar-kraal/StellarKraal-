@@ -164,6 +164,7 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
     <div className="bg-white dark:bg-[#1C1008] rounded-2xl p-6 shadow border border-transparent dark:border-gold/20 mt-6 space-y-4">
       {step === 'collateral' ? (
         <form
+          data-onboarding-target="loan"
           noValidate
           className="space-y-4"
           onSubmit={(e) => {

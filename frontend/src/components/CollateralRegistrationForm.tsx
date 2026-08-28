@@ -6,7 +6,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import Spinner from '@/components/Spinner';
 import { motion, useReducedMotion } from 'framer-motion';
 import { submitVariants } from '@/lib/animations';
-import { Input, Select, Button, ErrorSummary, toSummaryErrors } from '@/components/ui';
+import { Input, Select, Button, ErrorSummary, FieldError, toSummaryErrors } from '@/components/ui';
 import { useToast } from '@/components/toast';
 
 interface Props {
@@ -76,7 +76,6 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   // Image upload state
@@ -141,6 +140,12 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
   const validateField = useCallback(
     (name: keyof FormData, value: string | File | null): string | undefined => {
       switch (name) {
+        case 'animalType':
+          if (!value || !ANIMAL_TYPES.includes(String(value))) return 'Animal type is required';
+          break;
+        case 'healthStatus':
+          if (!value || !HEALTH_STATUSES.includes(String(value))) return 'Health status is required';
+          break;
         case 'breed':
           if (!value || (typeof value === 'string' && value.trim().length === 0))
             return 'Breed is required';
@@ -197,6 +202,10 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
   const handleChange = (name: keyof FormData, value: string | File | null) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
+  };
+
+  const handleBlur = (name: keyof FormData) => {
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, formData[name]) }));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -313,7 +322,12 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
 
       <h2 className="text-xl font-semibold text-brown-700">Register Livestock Collateral</h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form
+        data-onboarding-target="collateral"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        noValidate
+      >
         <ErrorSummary errors={submitAttempted ? toSummaryErrors(errors, FIELD_IDS) : []} />
         <Select
           id={FIELD_IDS.animalType}
@@ -321,6 +335,8 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           required
           value={formData.animalType}
           onChange={(e) => handleChange('animalType', e.target.value)}
+          onBlur={() => handleBlur('animalType')}
+          error={errors.animalType}
           disabled={loading}
         >
           {ANIMAL_TYPES.map((type) => (
@@ -338,6 +354,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           placeholder="Number of animals"
           value={formData.quantity}
           onChange={(e) => handleChange('quantity', e.target.value)}
+          onBlur={() => handleBlur('quantity')}
           error={errors.quantity}
           disabled={loading}
         />
@@ -351,6 +368,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           placeholder="Average weight per animal"
           value={formData.weight}
           onChange={(e) => handleChange('weight', e.target.value)}
+          onBlur={() => handleBlur('weight')}
           error={errors.weight}
           disabled={loading}
         />
@@ -361,6 +379,8 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           required
           value={formData.healthStatus}
           onChange={(e) => handleChange('healthStatus', e.target.value)}
+          onBlur={() => handleBlur('healthStatus')}
+          error={errors.healthStatus}
           disabled={loading}
         >
           {HEALTH_STATUSES.map((s) => (
@@ -378,6 +398,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           placeholder="Farm or region name"
           value={formData.location}
           onChange={(e) => handleChange('location', e.target.value)}
+          onBlur={() => handleBlur('location')}
           error={errors.location}
           disabled={loading}
         />
@@ -390,6 +411,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           placeholder="Total value in stroops"
           value={formData.appraisedValue}
           onChange={(e) => handleChange('appraisedValue', e.target.value)}
+          onBlur={() => handleBlur('appraisedValue')}
           error={errors.appraisedValue}
           disabled={loading}
         />
@@ -402,6 +424,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           placeholder="e.g., Holstein, Boer, Merino"
           value={formData.breed}
           onChange={(e) => handleChange('breed', e.target.value)}
+          onBlur={() => handleBlur('breed')}
           error={errors.breed}
           disabled={loading}
         />
@@ -414,6 +437,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           placeholder="Age of the animal"
           value={formData.age}
           onChange={(e) => handleChange('age', e.target.value)}
+          onBlur={() => handleBlur('age')}
           error={errors.age}
           disabled={loading}
         />
@@ -430,11 +454,14 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
             type="file"
             accept="image/*"
             onChange={handleImageChange}
+            onBlur={() => handleBlur('image')}
             disabled={loading}
             className="block w-full text-sm text-brown-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold file:text-brown hover:file:bg-gold/80 disabled:opacity-50"
             aria-label="Upload animal photo"
+            aria-invalid={!!errors.image}
+            aria-describedby={errors.image ? `${FIELD_IDS.image}-error` : undefined}
           />
-          {errors.image && <p className="text-sm text-error">{errors.image}</p>}
+          <FieldError id={`${FIELD_IDS.image}-error`} message={errors.image} />
           {imagePreview && (
             <div className="mt-3 relative">
               <img
@@ -463,7 +490,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           variants={reduced ? undefined : submitVariants}
           animate={loading ? 'loading' : 'idle'}
           className="w-full bg-brown text-cream py-2.5 rounded-xl font-semibold hover:bg-brown/80 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          disabled={loading}
+          disabled={loading || hasErrors}
         >
           {loading ? (
             <>
