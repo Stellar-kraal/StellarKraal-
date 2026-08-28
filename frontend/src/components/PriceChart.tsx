@@ -1,5 +1,6 @@
-"use client";
-import { useEffect, useState } from "react";
+'use client';
+import { useEffect, useState } from 'react';
+import { formatXlmNumber } from '@/lib/formatMoney';
 
 export interface PricePoint {
   date: string;
@@ -17,12 +18,12 @@ const SVG_W = 400;
 const SVG_H = 120;
 const PAD = { top: 10, right: 10, bottom: 24, left: 48 };
 
-function formatXlm(stroops: number) {
-  return (stroops / 1e7).toFixed(2);
+function formatChartXlm(stroops: number) {
+  return formatXlmNumber(stroops / 1e7);
 }
 
 function buildPath(points: PricePoint[]): string {
-  if (points.length < 2) return "";
+  if (points.length < 2) return '';
   const values = points.map((p) => p.value);
   const minV = Math.min(...values);
   const maxV = Math.max(...values);
@@ -33,16 +34,16 @@ function buildPath(points: PricePoint[]): string {
     .map((p, i) => {
       const x = PAD.left + (i / (points.length - 1)) * innerW;
       const y = PAD.top + innerH - ((p.value - minV) / range) * innerH;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
     })
-    .join(" ");
+    .join(' ');
 }
 
 /**
  * PriceChart renders a lightweight SVG line chart of price history data
  * fetched from the provided URL.
  */
-export function PriceChart({ url, label = "Price History" }: Props) {
+export function PriceChart({ url, label = 'Price History' }: Props) {
   const [data, setData] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,14 +64,14 @@ export function PriceChart({ url, label = "Price History" }: Props) {
         setData(raw as PricePoint[]);
       })
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Failed to load price data"),
+        setError(err instanceof Error ? err.message : 'Failed to load price data')
       )
       .finally(() => setLoading(false));
   }, [url]);
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow" aria-label="Loading price chart">
+      <div className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow" aria-label="Loading price chart">
         <div className="h-32 flex items-center justify-center">
           <span className="text-brown/50 text-sm">Loading chart…</span>
         </div>
@@ -80,7 +81,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow" role="alert">
+      <div className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow" role="alert">
         <p className="text-sm text-red-500">{error}</p>
       </div>
     );
@@ -88,7 +89,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow">
+      <div className="bg-[color:var(--token-surface-raised)] rounded-2xl p-6 shadow">
         <p className="text-sm text-brown/50">No price history available.</p>
       </div>
     );
@@ -102,10 +103,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
   const last = data[data.length - 1];
 
   return (
-    <section
-      className="bg-white rounded-2xl p-6 shadow"
-      aria-label={label}
-    >
+    <section className="bg-white rounded-2xl p-6 shadow" aria-label={label}>
       <h2 className="text-lg font-semibold text-brown mb-4">{label}</h2>
       <svg
         viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -116,34 +114,17 @@ export function PriceChart({ url, label = "Price History" }: Props) {
       >
         {/* Y-axis labels */}
         <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fontSize={9} fill="#7c6d5a">
-          {formatXlm(maxV)}
+          {formatChartXlm(maxV)}
         </text>
-        <text
-          x={PAD.left - 4}
-          y={SVG_H - PAD.bottom}
-          textAnchor="end"
-          fontSize={9}
-          fill="#7c6d5a"
-        >
-          {formatXlm(minV)}
+        <text x={PAD.left - 4} y={SVG_H - PAD.bottom} textAnchor="end" fontSize={9} fill="#7c6d5a">
+          {formatChartXlm(minV)}
         </text>
 
         {/* X-axis date labels */}
-        <text
-          x={PAD.left}
-          y={SVG_H - 4}
-          fontSize={9}
-          fill="#7c6d5a"
-        >
+        <text x={PAD.left} y={SVG_H - 4} fontSize={9} fill="#7c6d5a">
           {new Date(first.date).toLocaleDateString()}
         </text>
-        <text
-          x={SVG_W - PAD.right}
-          y={SVG_H - 4}
-          textAnchor="end"
-          fontSize={9}
-          fill="#7c6d5a"
-        >
+        <text x={SVG_W - PAD.right} y={SVG_H - 4} textAnchor="end" fontSize={9} fill="#7c6d5a">
           {new Date(last.date).toLocaleDateString()}
         </text>
 
@@ -153,7 +134,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           y1={PAD.top}
           x2={SVG_W - PAD.right}
           y2={PAD.top}
-          stroke="#e5e0d8"
+          style={{ stroke: 'var(--token-border)' }}
           strokeWidth={0.5}
         />
         <line
@@ -161,7 +142,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           y1={SVG_H - PAD.bottom}
           x2={SVG_W - PAD.right}
           y2={SVG_H - PAD.bottom}
-          stroke="#e5e0d8"
+          style={{ stroke: 'var(--token-border)' }}
           strokeWidth={0.5}
         />
 
@@ -170,7 +151,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           <path
             d={path}
             fill="none"
-            stroke="#b5860a"
+            style={{ stroke: 'var(--token-accent)' }}
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -184,9 +165,7 @@ export function PriceChart({ url, label = "Price History" }: Props) {
           const range = maxV - minV || 1;
           const cx = PAD.left + innerW;
           const cy = PAD.top + innerH - ((last.value - minV) / range) * innerH;
-          return (
-            <circle cx={cx} cy={cy} r={3} fill="#b5860a" />
-          );
+          return <circle cx={cx} cy={cy} r={3} fill="#b5860a" />;
         })()}
       </svg>
     </section>
