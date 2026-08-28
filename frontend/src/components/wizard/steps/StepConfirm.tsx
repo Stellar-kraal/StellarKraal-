@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWizard } from '@/context/LoanWizardContext';
 import { useButtonState } from '@/hooks/useButtonState';
 import { signTransaction } from '@/lib/freighterClient';
@@ -20,6 +20,13 @@ interface Props {
   walletAddress: string;
 }
 
+interface FeeEstimate {
+  principal: number;
+  originationFee: number;
+  totalAmount: number;
+  interestRate: number;
+}
+
 export default function StepConfirm({ walletAddress }: Props) {
   const {
     animalType,
@@ -34,11 +41,47 @@ export default function StepConfirm({ walletAddress }: Props) {
   } = useWizard();
 
   const [loanId, setLoanId] = useState<string | null>(null);
+  const [feeEstimate, setFeeEstimate] = useState<FeeEstimate | null>(null);
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [feeError, setFeeError] = useState<string | null>(null);
   const submitButton = useButtonState();
 
   const rate = TERM_RATES[loanTermDays] || '5%';
   const fee = Math.floor((parseInt(loanAmount || '0') * parseFloat(rate)) / 100);
   const totalRepay = parseInt(loanAmount || '0') + fee;
+
+  useEffect(() => {
+    let mounted = true;
+    setFeeLoading(true);
+    setFeeError(null);
+    fetch(`${API}/api/v1/loans/estimate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ principal: parseInt(loanAmount || '0') }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to estimate fee');
+        return r.json();
+      })
+      .then((data: FeeEstimate) => {
+        if (mounted) {
+          setFeeEstimate(data);
+          setFeeLoading(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setFeeError('Unable to estimate fee');
+          setFeeLoading(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [loanAmount]);
+
+  const xlmFee = feeEstimate ? (feeEstimate.originationFee / 1e7).toFixed(7) : '0';
+  const feeWarning = feeEstimate && feeEstimate.originationFee > 0.1 * 1e7;
 
   async function handleSubmit() {
     submitButton.setLoading();
@@ -61,7 +104,6 @@ export default function StepConfirm({ walletAddress }: Props) {
       });
       const result = await submitSignedXdr(signedTxXdr);
       setLoanId(String(result));
-      // New loan created — drop cached loan lists so they revalidate.
       invalidateLoans();
       submitButton.setSuccess();
     } catch (e) {
@@ -145,14 +187,26 @@ export default function StepConfirm({ walletAddress }: Props) {
             <p className="font-semibold text-brown">{loanTermDays}d</p>
           </div>
           <div>
-            <p className="text-xs text-brown/50">Fee</p>
-            <p className="font-semibold text-brown">{fee.toLocaleString()}</p>
+            <p className="text-xs text-brown/50">Network Fee</p>
+            {feeLoading ? (
+              <p className="font-semibold text-brown">...</p>
+            ) : feeError ? (
+              <p className="font-semibold text-red-600">Unable to estimate fee</p>
+            ) : (
+              <p className="font-semibold text-brown">{xlmFee} XLM</p>
+            )}
           </div>
           <div>
             <p className="text-xs text-brown/50">Repay total</p>
             <p className="font-semibold text-brown">{totalRepay.toLocaleString()}</p>
           </div>
         </div>
+
+        {feeWarning && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            ⚠️ Estimated fee exceeds 0.1 XLM. Review before submitting.
+          </div>
+        )}
       </div>
 
       {/* Wallet note */}
@@ -184,6 +238,7 @@ export default function StepConfirm({ walletAddress }: Props) {
           className="flex-[2]"
           onClick={handleSubmit}
           state={submitButton.state}
+          disabled={!!feeError}
         >
           🚀 Submit Loan Request
         </Button>
