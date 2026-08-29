@@ -2,18 +2,48 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
 import WalletConnect from "@/components/WalletConnect";
 import CollateralCard from "@/components/CollateralCard";
-import RepayPanel from "@/components/RepayPanel";
-import HealthGauge from "@/components/HealthGauge";
-import LoanRepaymentCalculator from "@/components/LoanRepaymentCalculator";
 import TransactionHistory from "@/components/TransactionHistory";
 import SkeletonHealthDashboard from "@/components/SkeletonHealthDashboard";
+import SkeletonLoanCard from "@/components/SkeletonLoanCard";
 import HelpMenu from "@/components/HelpMenu";
 import OnboardingModal from "@/components/OnboardingModal";
+import LiquidationWarningModal from "@/components/LiquidationWarningModal";
 import { useHealthFactor } from "@/hooks/useHealthFactor";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useLoans } from "@/hooks/useLoans";
+import { useLiquidationWarning } from "@/hooks/useLiquidationWarning";
+
+// ── Lazy-loaded heavy components ─────────────────────────────────────────────
+
+const HealthGauge = dynamic(() => import("@/components/HealthGauge"), {
+  ssr: false,
+  loading: () => <SkeletonHealthDashboard />,
+});
+
+const LoanRepaymentCalculator = dynamic(
+  () => import("@/components/LoanRepaymentCalculator"),
+  {
+    ssr: false,
+    loading: () => <SkeletonLoanCard />,
+  },
+);
+
+const RepayPanel = dynamic(() => import("@/components/RepayPanel"), {
+  ssr: false,
+  loading: () => <SkeletonLoanCard />,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface LoanWithHealth {
+  id: string;
+  health_factor?: number | null;
+  status?: string;
+}
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -21,6 +51,13 @@ export default function DashboardClient() {
   const [loanId, setLoanId] = useState("");
   const { showOnboarding, openOnboarding, closeOnboarding } = useOnboarding();
   const { healthFactor, loading: isHealthLoading, refresh: refreshHealth } = useHealthFactor(loanId);
+
+  // Fetch loans to check for at-risk health factors
+  const { loans } = useLoans({ refreshInterval: 60_000 });
+  const loansWithHealth = loans as unknown as LoanWithHealth[];
+
+  const { shouldShow: showLiquidationWarning, atRiskLoans, dismiss: dismissWarning } =
+    useLiquidationWarning(loansWithHealth);
 
   function handleProceedToRepay(nextLoanId: string, _nextAmount: string) {
     setLoanId(nextLoanId);
@@ -33,6 +70,15 @@ export default function DashboardClient() {
         <HelpMenu onShowOnboarding={openOnboarding} />
       </div>
       <OnboardingModal isOpen={showOnboarding} onClose={closeOnboarding} />
+
+      {/* Auto-triggered liquidation warning */}
+      {showLiquidationWarning && (
+        <LiquidationWarningModal
+          atRiskLoans={atRiskLoans}
+          onDismiss={dismissWarning}
+        />
+      )}
+
       <WalletConnect onConnect={setWallet} />
       {wallet && (
         <>
