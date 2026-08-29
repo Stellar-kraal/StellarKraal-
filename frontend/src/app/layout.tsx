@@ -10,6 +10,7 @@ import { ToastProvider, ToastContainer } from "@/components/toast";
 import SkipToContent from "@/components/SkipToContent";
 import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
 import PrintDateScript from "@/components/PrintDateScript";
+import InitialLoadingScreen from "@/components/InitialLoadingScreen";
 
 export const metadata: Metadata = {
   title: "StellarKraal — Livestock Micro-Lending",
@@ -31,6 +32,72 @@ export default function RootLayout({
           color: "var(--color-text)",
         }}
       >
+        {/* Inline animated SVG loading screen for initial app load (#839) */}
+        <div id="initial-loading-screen" role="status" aria-label="Loading StellarKraal">
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+            #initial-loading-screen {
+              position: fixed;
+              top: 0; left: 0; right: 0; bottom: 0;
+              z-index: 99999;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              background-color: var(--color-bg, #fefcf8);
+              color: var(--color-text, #2a1b0b);
+              transition: opacity 0.4s ease, visibility 0.4s ease;
+            }
+            #initial-loading-screen.fade-out {
+              opacity: 0;
+              visibility: hidden;
+              pointer-events: none;
+            }
+            .sk-loading-logo {
+              width: 72px;
+              height: 72px;
+              animation: sk-pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            .sk-loading-text {
+              margin-top: 0.75rem;
+              font-family: system-ui, -apple-system, sans-serif;
+              font-size: 0.875rem;
+              font-weight: 600;
+              letter-spacing: 0.05em;
+              color: var(--token-primary, #5d3c15);
+            }
+            @keyframes sk-pulse-glow {
+              0%, 100% { transform: scale(1); opacity: 0.85; }
+              50% { transform: scale(1.08); opacity: 1; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .sk-loading-logo {
+                animation: none !important;
+              }
+            }
+          `,
+            }}
+          />
+          <svg
+            className="sk-loading-logo"
+            viewBox="0 0 80 80"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <ellipse cx="40" cy="48" rx="20" ry="12" fill="var(--token-surface, #ffffff)" stroke="var(--token-primary, #5d3c15)" strokeWidth="2.5" />
+            <ellipse cx="40" cy="28" rx="10" ry="8" fill="var(--token-surface, #ffffff)" stroke="var(--token-primary, #5d3c15)" strokeWidth="2.5" />
+            <path d="M30 25 Q26 18 29 16 Q32 20 30 25Z" fill="var(--token-primary, #5d3c15)" opacity="0.7" />
+            <path d="M50 25 Q54 18 51 16 Q48 20 50 25Z" fill="var(--token-primary, #5d3c15)" opacity="0.7" />
+            <circle cx="36" cy="27" r="1.5" fill="var(--token-primary, #5d3c15)" />
+            <circle cx="44" cy="27" r="1.5" fill="var(--token-primary, #5d3c15)" />
+            <circle cx="26" cy="18" r="3" fill="var(--token-accent, #d4a017)" />
+          </svg>
+          <div className="sk-loading-text">StellarKraal</div>
+        </div>
+        <InitialLoadingScreen />
+
         {/*
          * PrintDateScript injects the current date as data-print-date on <body>
          * so the CSS print footer (body::after { content: attr(data-print-date) })
