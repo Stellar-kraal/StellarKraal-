@@ -2,18 +2,41 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
 import WalletConnect from "@/components/WalletConnect";
 import CollateralCard from "@/components/CollateralCard";
-import RepayPanel from "@/components/RepayPanel";
-import HealthGauge from "@/components/HealthGauge";
-import LoanRepaymentCalculator from "@/components/LoanRepaymentCalculator";
 import TransactionHistory from "@/components/TransactionHistory";
 import SkeletonHealthDashboard from "@/components/SkeletonHealthDashboard";
+import SkeletonLoanCard from "@/components/SkeletonLoanCard";
 import HelpMenu from "@/components/HelpMenu";
 import OnboardingModal from "@/components/OnboardingModal";
 import { useHealthFactor } from "@/hooks/useHealthFactor";
 import { useOnboarding } from "@/hooks/useOnboarding";
+
+// ── Lazy-loaded heavy components ─────────────────────────────────────────────
+// Using next/dynamic with ssr:false prevents hydration mismatches for
+// canvas/SVG-heavy components. Skeleton fallbacks maintain layout stability.
+
+const HealthGauge = dynamic(() => import("@/components/HealthGauge"), {
+  ssr: false,
+  loading: () => <SkeletonHealthDashboard />,
+});
+
+const LoanRepaymentCalculator = dynamic(
+  () => import("@/components/LoanRepaymentCalculator"),
+  {
+    ssr: false,
+    loading: () => <SkeletonLoanCard />,
+  },
+);
+
+const RepayPanel = dynamic(() => import("@/components/RepayPanel"), {
+  ssr: false,
+  loading: () => <SkeletonLoanCard />,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardClient() {
   const router = useRouter();
