@@ -33,6 +33,7 @@ All clients are subject to per-IP rate limits (global, auth, and write tiers). S
 
 ## Further reading
 
+- [API Changelog](../api-changelog.md) — versioned history of all v1 endpoint changes, breaking changes, and deprecations
 - [Local development setup](../development/local-setup.md)
 - [Troubleshooting](../troubleshooting.md)
 - [Liquidation protocol](../protocol/liquidation.md)

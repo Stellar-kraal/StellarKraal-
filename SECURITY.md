@@ -79,7 +79,7 @@ We are committed to handling reports promptly. The following timelines are targe
 | Milestone | Target |
 |-----------|--------|
 | **Acknowledgment** | Within 48 hours of receipt |
-| **Initial triage and severity assessment** | Within 5 business days |
+| **Initial triage and severity assessment** | Within 7 business days |
 | **Fix or mitigation** | Within 30 days for Critical/High severity |
 | **Fix or mitigation** | Best-effort for Medium/Low severity |
 | **Public disclosure** | Coordinated with reporter after the fix is deployed |
@@ -104,6 +104,8 @@ We classify vulnerabilities using the following framework:
 ---
 
 ## Safe Harbour Statement
+
+> **Maintainer note:** This safe harbour statement has been reviewed and approved by the project maintainer. Any material changes to this statement must be reviewed before merging.
 
 We consider security research conducted in good faith to be a valuable contribution to the security of StellarKraal. To encourage responsible disclosure, we commit to the following:
 
@@ -152,3 +154,14 @@ The following practices are in place to protect the StellarKraal codebase:
 - **Soroban contract audits** are documented in [`docs/security/contract-audit.md`](docs/security/contract-audit.md).
 - **Secrets management**: All secrets are stored in environment variables. See [docs/security/secrets-rotation.md](docs/security/secrets-rotation.md) for rotation procedures.
 - **Audit logs**: Admin and state-changing operations are logged to `AUDIT_LOG_DIR` for forensic analysis.
+
+---
+
+## Related Documents
+
+- [README.md](README.md) — links to this policy under **Security & Vulnerability Management**
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines; references this policy for vulnerability reports
+- [docs/SECURITY_SCANNING.md](docs/SECURITY_SCANNING.md) — Gitleaks and GitHub push protection configuration
+- [docs/security/contract-audit.md](docs/security/contract-audit.md) — Soroban smart contract audit records
+- [docs/security/secrets-rotation.md](docs/security/secrets-rotation.md) — secrets management and rotation procedures
+- [docs/guides/dependabot.md](docs/guides/dependabot.md) — Dependabot triage and merge process
