@@ -1,35 +1,31 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import KeyboardShortcutsProvider from "@/components/KeyboardShortcutsProvider";
-import Link from "next/link";
-import OfflineBanner from "@/components/OfflineBanner";
-import Navbar from "@/components/Navbar";
-import MobileBottomNav from "@/components/MobileBottomNav";
-import ThemeProvider, { ThemeScript } from "@/components/ThemeProvider";
-import { ToastProvider, ToastContainer } from "@/components/toast";
-import SkipToContent from "@/components/SkipToContent";
-import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
-import PrintDateScript from "@/components/PrintDateScript";
-import InitialLoadingScreen from "@/components/InitialLoadingScreen";
+import type { Metadata } from 'next';
+import './globals.css';
+import KeyboardShortcutsProvider from '@/components/KeyboardShortcutsProvider';
+import Link from 'next/link';
+import OfflineBanner from '@/components/OfflineBanner';
+import Navbar from '@/components/Navbar';
+import MobileBottomNav from '@/components/MobileBottomNav';
+import ThemeProvider, { ThemeScript } from '@/components/ThemeProvider';
+import { ToastProvider, ToastContainer } from '@/components/toast';
+import SkipToContent from '@/components/SkipToContent';
+import NetworkMismatchBanner from '@/components/NetworkMismatchBanner';
+import PrintDateScript from '@/components/PrintDateScript';
+import InitialLoadingScreen from '@/components/InitialLoadingScreen';
 
 export const metadata: Metadata = {
-  title: "StellarKraal — Livestock Micro-Lending",
-  description: "Livestock-backed micro-lending on Stellar/Soroban",
-  manifest: "/manifest.json",
+  title: 'StellarKraal — Livestock Micro-Lending',
+  description: 'Livestock-backed micro-lending on Stellar/Soroban',
+  manifest: '/manifest.json',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className="min-h-screen overflow-x-hidden px-4"
         style={{
-          backgroundColor: "var(--color-bg)",
-          color: "var(--color-text)",
+          backgroundColor: 'var(--color-bg)',
+          color: 'var(--color-text)',
         }}
       >
         {/* Inline animated SVG loading screen for initial app load (#839) */}
@@ -86,10 +82,34 @@ export default function RootLayout({
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
           >
-            <ellipse cx="40" cy="48" rx="20" ry="12" fill="var(--token-surface, #ffffff)" stroke="var(--token-primary, #5d3c15)" strokeWidth="2.5" />
-            <ellipse cx="40" cy="28" rx="10" ry="8" fill="var(--token-surface, #ffffff)" stroke="var(--token-primary, #5d3c15)" strokeWidth="2.5" />
-            <path d="M30 25 Q26 18 29 16 Q32 20 30 25Z" fill="var(--token-primary, #5d3c15)" opacity="0.7" />
-            <path d="M50 25 Q54 18 51 16 Q48 20 50 25Z" fill="var(--token-primary, #5d3c15)" opacity="0.7" />
+            <ellipse
+              cx="40"
+              cy="48"
+              rx="20"
+              ry="12"
+              fill="var(--token-surface, #ffffff)"
+              stroke="var(--token-primary, #5d3c15)"
+              strokeWidth="2.5"
+            />
+            <ellipse
+              cx="40"
+              cy="28"
+              rx="10"
+              ry="8"
+              fill="var(--token-surface, #ffffff)"
+              stroke="var(--token-primary, #5d3c15)"
+              strokeWidth="2.5"
+            />
+            <path
+              d="M30 25 Q26 18 29 16 Q32 20 30 25Z"
+              fill="var(--token-primary, #5d3c15)"
+              opacity="0.7"
+            />
+            <path
+              d="M50 25 Q54 18 51 16 Q48 20 50 25Z"
+              fill="var(--token-primary, #5d3c15)"
+              opacity="0.7"
+            />
             <circle cx="36" cy="27" r="1.5" fill="var(--token-primary, #5d3c15)" />
             <circle cx="44" cy="27" r="1.5" fill="var(--token-primary, #5d3c15)" />
             <circle cx="26" cy="18" r="3" fill="var(--token-accent, #d4a017)" />
@@ -113,67 +133,67 @@ export default function RootLayout({
               <SessionTimeoutBanner />
               <NetworkMismatchBanner />
               <OfflineBanner />
-            {/* Top utility nav — hidden when printing */}
-            <nav
-              className="flex gap-4 px-6 py-3 text-sm border-b no-print"
-              aria-label="Utility navigation"
-              data-print="hide"
-              style={{
-                borderColor: "var(--color-nav-border)",
-                backgroundColor: "var(--color-nav-bg)",
-              }}
-            >
-              <Link
-                href="/"
-                className="font-semibold hover:opacity-70 transition"
-                style={{ color: "var(--color-text)" }}
+              {/* Top utility nav — hidden when printing */}
+              <nav
+                className="flex gap-4 px-6 py-3 text-sm border-b no-print"
+                aria-label="Utility navigation"
+                data-print="hide"
+                style={{
+                  borderColor: 'var(--color-nav-border)',
+                  backgroundColor: 'var(--color-nav-bg)',
+                }}
               >
-                StellarKraal
-              </Link>
-              <span className="flex-1" />
-              <Link
-                href="/loans"
-                className="hover:opacity-100 transition"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                Loans
-              </Link>
-              <Link
-                href="/collateral"
-                className="hover:opacity-100 transition"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                Collateral
-              </Link>
-              <Link
-                href="/help/faq"
-                className="hover:opacity-100 transition"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                FAQ
-              </Link>
-              <Link
-                href="/profile"
-                className="hover:opacity-100 transition"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                Profile
-              </Link>
-              <Link
-                href="/settings"
-                className="hover:opacity-100 transition"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                Settings
-              </Link>
-            </nav>
-            <Navbar />
-            <MobileBottomNav />
-            <main id="main-content" className="pb-20 md:pb-0">
-            {children}
-            </main>
-            <ToastContainer />
-            <WhatsNewProvider />
+                <Link
+                  href="/"
+                  className="font-semibold hover:opacity-70 transition"
+                  style={{ color: 'var(--color-text)' }}
+                >
+                  StellarKraal
+                </Link>
+                <span className="flex-1" />
+                <Link
+                  href="/loans"
+                  className="hover:opacity-100 transition"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Loans
+                </Link>
+                <Link
+                  href="/collateral"
+                  className="hover:opacity-100 transition"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Collateral
+                </Link>
+                <Link
+                  href="/help/faq"
+                  className="hover:opacity-100 transition"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  FAQ
+                </Link>
+                <Link
+                  href="/profile"
+                  className="hover:opacity-100 transition"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Profile
+                </Link>
+                <Link
+                  href="/settings"
+                  className="hover:opacity-100 transition"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Settings
+                </Link>
+              </nav>
+              <Navbar />
+              <MobileBottomNav />
+              <main id="main-content" className="pb-20 md:pb-0">
+                {children}
+              </main>
+              <ToastContainer />
+              <WhatsNewProvider />
             </ToastProvider>
           </KeyboardShortcutsProvider>
         </ThemeProvider>

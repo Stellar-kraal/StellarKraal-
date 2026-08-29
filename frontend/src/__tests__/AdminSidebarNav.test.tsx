@@ -17,7 +17,11 @@ describe('AdminSidebarNav', () => {
   beforeEach(() => {
     (usePathname as jest.Mock).mockReturnValue('/admin/moderation');
     localStorage.clear();
-    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    });
   });
 
   it('renders skeleton loaders during auth resolution', () => {
@@ -68,10 +72,7 @@ describe('AdminSidebarNav', () => {
   });
 
   it('renders Color Palette link when present in items', async () => {
-    const itemsWithPalette = [
-      ...mockItems,
-      { label: 'Color Palette', href: '/docs/colors' },
-    ];
+    const itemsWithPalette = [...mockItems, { label: 'Color Palette', href: '/docs/colors' }];
     render(<AdminSidebarNav items={itemsWithPalette} />);
 
     await waitFor(() => {
@@ -142,4 +143,3 @@ describe('AdminSidebarNav', () => {
     });
   });
 });
-

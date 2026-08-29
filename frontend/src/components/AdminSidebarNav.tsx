@@ -60,7 +60,10 @@ export default function AdminSidebarNav({ items }: AdminSidebarNavProps) {
     }
 
     const handleResize = () => {
-      if (typeof window !== 'undefined' && localStorage.getItem('admin_sidebar_collapsed') === null) {
+      if (
+        typeof window !== 'undefined' &&
+        localStorage.getItem('admin_sidebar_collapsed') === null
+      ) {
         if (window.innerWidth < 1024) {
           setIsCollapsed(true);
         } else {
@@ -150,11 +153,7 @@ export default function AdminSidebarNav({ items }: AdminSidebarNavProps) {
             title={isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
             className="p-2 rounded-lg text-brown/70 dark:text-cream/70 hover:bg-brown/10 dark:hover:bg-cream/10 hover:text-brown dark:hover:text-cream transition flex items-center justify-center min-h-[44px] min-w-[44px]"
           >
-            <Icon
-              icon={isCollapsed ? ChevronRight : ChevronLeft}
-              size="md"
-              aria-hidden="true"
-            />
+            <Icon icon={isCollapsed ? ChevronRight : ChevronLeft} size="md" aria-hidden="true" />
           </button>
         </div>
 
@@ -182,9 +181,7 @@ export default function AdminSidebarNav({ items }: AdminSidebarNavProps) {
                     className="shrink-0 text-current"
                     aria-hidden="true"
                   />
-                  <span className={isCollapsed ? 'sr-only' : 'truncate'}>
-                    {item.label}
-                  </span>
+                  <span className={isCollapsed ? 'sr-only' : 'truncate'}>{item.label}</span>
                 </Link>
 
                 {/* Tooltip visible on hover/focus when sidebar is collapsed */}
@@ -204,4 +201,3 @@ export default function AdminSidebarNav({ items }: AdminSidebarNavProps) {
     </aside>
   );
 }
-
