@@ -1,12 +1,47 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Help & Guides — StellarKraal",
+  description: "Plain-language guides and support resources for StellarKraal livestock micro-lending.",
+  alternates: { canonical: "https://stellarkraal.io/help" },
+  openGraph: {
+    title: "Help & Guides — StellarKraal",
+    description: "Plain-language guides and support resources for StellarKraal livestock micro-lending.",
+    url: "https://stellarkraal.io/help",
+    images: [{ url: "https://stellarkraal.io/og-banner.png" }],
+  },
+};
 
 const guides = [
   {
     title: "Register Livestock as Collateral",
-    description: "Step-by-step guide to registering your animals on StellarKraal.",
+    description:
+      "Step-by-step guide for connecting your wallet, filling in the registration form, submitting the transaction, and confirming on-chain. Also covers common error cases.",
     links: [
-      { label: "English", href: "https://github.com/teslims2/StellarKraal-/blob/main/docs/guides/en/register-collateral.md" },
-      { label: "Kiswahili", href: "https://github.com/teslims2/StellarKraal-/blob/main/docs/guides/sw/register-collateral.md" },
+      {
+        label: "Full guide",
+        href: "https://github.com/teslims2/StellarKraal-/blob/main/docs/guides/register-collateral.md",
+      },
+      {
+        label: "English",
+        href: "https://github.com/teslims2/StellarKraal-/blob/main/docs/guides/en/register-collateral.md",
+      },
+      {
+        label: "Kiswahili",
+        href: "https://github.com/teslims2/StellarKraal-/blob/main/docs/guides/sw/register-collateral.md",
+      },
+    ],
+  },
+  {
+    title: "Freighter Wallet Troubleshooting",
+    description:
+      "Solutions for common Freighter wallet errors: extension not detected, locked wallet, wrong network selected, transaction rejected, and sequence number drift. Covers desktop and mobile browser scenarios.",
+    links: [
+      {
+        label: "Troubleshooting guide",
+        href: "https://github.com/teslims2/StellarKraal-/blob/main/docs/troubleshooting.md#freighter-wallet",
+      },
     ],
   },
 ];
@@ -15,13 +50,17 @@ export default function HelpPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-10">
       <div className="mb-2">
-        <Link href="/" className="text-brown/60 hover:text-brown text-sm">← Home</Link>
+        <Link href="/" className="text-brown/60 hover:text-brown text-sm">
+          ← Home
+        </Link>
       </div>
       <h1 className="text-3xl font-bold text-brown mb-2">Help &amp; Guides</h1>
       <p className="text-brown/60 mb-8 text-sm">Plain-language guides to help you get started.</p>
 
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-brown mb-4 border-b border-brown/10 pb-2">User Guides</h2>
+        <h2 className="text-lg font-semibold text-brown mb-4 border-b border-brown/10 pb-2">
+          User Guides
+        </h2>
         <ul className="space-y-4">
           {guides.map((guide) => (
             <li key={guide.title} className="bg-white rounded-xl p-4 shadow-sm">
@@ -46,12 +85,24 @@ export default function HelpPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-brown mb-4 border-b border-brown/10 pb-2">Other Resources</h2>
+        <h2 className="text-lg font-semibold text-brown mb-4 border-b border-brown/10 pb-2">
+          Other Resources
+        </h2>
         <ul className="space-y-2 text-sm">
           <li>
             <Link href="/help/faq" className="underline text-brown hover:text-brown/70">
-              Frequently Asked Questions
+              Frequently Asked Questions (in-app)
             </Link>
+          </li>
+          <li>
+            <a
+              href="https://github.com/teslims2/StellarKraal-/blob/main/docs/faq.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-brown hover:text-brown/70"
+            >
+              Borrower FAQ (documentation)
+            </a>
           </li>
           <li>
             <a
