@@ -4,6 +4,7 @@ import { rules } from "./alertRules";
 import { pool } from "./connectionPool";
 import logger from "./logger";
 import { getCorrelationId } from "./correlationContext";
+import { getAccountFromHorizon, isHorizonConfigured } from "./horizonClient";
 
 /**
  * Circuit breaker options:
@@ -33,7 +34,34 @@ const rpcMethods = {
   getAccount: async (address: string) => {
     const correlationId = getCorrelationId();
     logger.debug("RPC getAccount", { address, correlationId });
-    return pool.run((server) => server.getAccount(address));
+
+    try {
+      return await pool.run((server) => server.getAccount(address));
+    } catch (error) {
+      // Try Horizon as fallback if Soroban RPC fails and Horizon is configured
+      if (isHorizonConfigured()) {
+        logger.info("Soroban RPC getAccount failed, trying Horizon fallback", {
+          address,
+          correlationId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        try {
+          return await getAccountFromHorizon(address);
+        } catch (horizonError) {
+          logger.error("Both Soroban RPC and Horizon failed for getAccount", {
+            address,
+            correlationId,
+            sorobanError: error instanceof Error ? error.message : String(error),
+            horizonError: horizonError instanceof Error ? horizonError.message : String(horizonError),
+          });
+          throw error; // Re-throw original Soroban error
+        }
+      }
+
+      // No fallback available, re-throw original error
+      throw error;
+    }
   },
 
   prepareTransaction: async (tx: any) => {
@@ -52,6 +80,18 @@ const rpcMethods = {
     const correlationId = getCorrelationId();
     logger.debug("RPC getHealth", { correlationId });
     return pool.run((server) => server.getHealth());
+  },
+
+  getTransaction: async (hash: string) => {
+    const correlationId = getCorrelationId();
+    logger.debug("RPC getTransaction", { hash, correlationId });
+    return pool.run((server) => server.getTransaction(hash));
+  },
+
+  sendTransaction: async (tx: any) => {
+    const correlationId = getCorrelationId();
+    logger.debug("RPC sendTransaction", { correlationId });
+    return pool.run((server) => server.sendTransaction(tx));
   },
 };
 
@@ -74,6 +114,14 @@ const getHealthBreaker = new CircuitBreaker(
   rpcMethods.getHealth,
   circuitBreakerOptions
 );
+const getTransactionBreaker = new CircuitBreaker(
+  rpcMethods.getTransaction,
+  circuitBreakerOptions
+);
+const sendTransactionBreaker = new CircuitBreaker(
+  rpcMethods.sendTransaction,
+  circuitBreakerOptions
+);
 
 // Circuit breaker event logging + alerting
 [
@@ -81,6 +129,8 @@ const getHealthBreaker = new CircuitBreaker(
   prepareTransactionBreaker,
   simulateTransactionBreaker,
   getHealthBreaker,
+  getTransactionBreaker,
+  sendTransactionBreaker,
 ].forEach((breaker) => {
   breaker.on("open", () => {
     logger.error("Circuit breaker opened", { breaker: breaker.name, correlationId: getCorrelationId() });
@@ -115,7 +165,9 @@ export const rpcClient = {
   prepareTransaction: (tx: any) => prepareTransactionBreaker.fire(tx),
   simulateTransaction: (tx: any) => simulateTransactionBreaker.fire(tx),
   getHealth: () => getHealthBreaker.fire(),
-  
+  getTransaction: (hash: string) => getTransactionBreaker.fire(hash),
+  sendTransaction: (tx: any) => sendTransactionBreaker.fire(tx),
+
   /**
    * Get circuit breaker states for health check.
    * @returns An object mapping each RPC method to its circuit breaker state.
@@ -125,6 +177,8 @@ export const rpcClient = {
     prepareTransaction: prepareTransactionBreaker.opened ? "open" : "closed",
     simulateTransaction: simulateTransactionBreaker.opened ? "open" : "closed",
     getHealth: getHealthBreaker.opened ? "open" : "closed",
+    getTransaction: getTransactionBreaker.opened ? "open" : "closed",
+    sendTransaction: sendTransactionBreaker.opened ? "open" : "closed",
   }),
 
   /**
@@ -136,7 +190,9 @@ export const rpcClient = {
       !getAccountBreaker.opened &&
       !prepareTransactionBreaker.opened &&
       !simulateTransactionBreaker.opened &&
-      !getHealthBreaker.opened
+      !getHealthBreaker.opened &&
+      !getTransactionBreaker.opened &&
+      !sendTransactionBreaker.opened
     );
   },
 };

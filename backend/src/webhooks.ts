@@ -6,6 +6,8 @@ export interface WebhookRegistration {
   /** Per-webhook HMAC-SHA256 secret. Returned once on registration; store securely. */
   secret: string;
   createdAt: number;
+  /** Whether payloads are encrypted with AES-256-GCM. Defaults to false. */
+  encrypt: boolean;
 }
 
 export interface DeliveryLog {
@@ -30,6 +32,73 @@ export function __resetForTests(): void {
   deliveryLogs.length = 0;
 }
 
+// ── AES-256-GCM encryption helpers ───────────────────────────────────────────
+
+/**
+ * Derives a 32-byte AES key from the webhook secret using HKDF-SHA256.
+ *
+ * @param secret - Webhook secret (arbitrary-length string).
+ * @returns 32-byte Buffer suitable for AES-256-GCM.
+ */
+export function deriveEncryptionKey(secret: string): Buffer {
+  return Buffer.from(crypto.hkdfSync(
+    "sha256",
+    Buffer.from(secret, "utf8"),
+    Buffer.alloc(0), // empty salt
+    Buffer.from("stellarkraal-webhook-encryption", "utf8"),
+    32
+  ));
+}
+
+/**
+ * Encrypts a plaintext string with AES-256-GCM.
+ *
+ * Receivers decrypt with:
+ * ```
+ * const key = hkdf("sha256", secret, "", "stellarkraal-webhook-encryption", 32);
+ * const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "hex"));
+ * decipher.setAuthTag(Buffer.from(authTag, "hex"));
+ * const plain = decipher.update(Buffer.from(encrypted_payload, "hex")) + decipher.final();
+ * ```
+ *
+ * @param plaintext - UTF-8 string to encrypt.
+ * @param key - 32-byte AES key (from {@link deriveEncryptionKey}).
+ * @returns Object containing hex-encoded `iv`, `encrypted_payload`, and `auth_tag`.
+ */
+export function encryptPayload(
+  plaintext: string,
+  key: Buffer
+): { iv: string; encrypted_payload: string; auth_tag: string } {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  return {
+    iv: iv.toString("hex"),
+    encrypted_payload: encrypted.toString("hex"),
+    auth_tag: cipher.getAuthTag().toString("hex"),
+  };
+}
+
+/**
+ * Decrypts an AES-256-GCM ciphertext produced by {@link encryptPayload}.
+ *
+ * @param iv - Hex-encoded 12-byte IV.
+ * @param encryptedPayload - Hex-encoded ciphertext.
+ * @param authTag - Hex-encoded 16-byte GCM auth tag.
+ * @param key - 32-byte AES key.
+ * @returns Decrypted UTF-8 string.
+ */
+export function decryptPayload(
+  iv: string,
+  encryptedPayload: string,
+  authTag: string,
+  key: Buffer
+): string {
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "hex"));
+  decipher.setAuthTag(Buffer.from(authTag, "hex"));
+  return decipher.update(Buffer.from(encryptedPayload, "hex")).toString("utf8") + decipher.final("utf8");
+}
+
 /**
  * Register a new webhook listener.
  *
@@ -47,7 +116,7 @@ export function __resetForTests(): void {
  * @returns The registered webhook metadata including the one-time secret.
  * @throws Error if the URL is invalid or unsupported.
  */
-export function registerWebhook(url: string): WebhookRegistration {
+export function registerWebhook(url: string, encrypt = false): WebhookRegistration {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -59,7 +128,7 @@ export function registerWebhook(url: string): WebhookRegistration {
   }
   const id = crypto.randomUUID();
   const secret = crypto.randomBytes(32).toString("hex");
-  const reg: WebhookRegistration = { id, url, secret, createdAt: Date.now() };
+  const reg: WebhookRegistration = { id, url, secret, createdAt: Date.now(), encrypt };
   webhooks.set(id, reg);
   return reg;
 }
@@ -71,6 +140,16 @@ export function registerWebhook(url: string): WebhookRegistration {
  */
 export function getWebhooks(): Omit<WebhookRegistration, "secret">[] {
   return Array.from(webhooks.values()).map(({ secret: _s, ...rest }) => rest);
+}
+
+/**
+ * Deregister a webhook by ID.
+ *
+ * @param id - The unique webhook ID returned at registration time.
+ * @returns `true` if the webhook was found and removed, `false` if not found.
+ */
+export function deleteWebhook(id: string): boolean {
+  return webhooks.delete(id);
 }
 
 /**
@@ -95,6 +174,9 @@ function sign(payload: string, secret: string): string {
 
 /**
  * Deliver an event payload to all registered webhooks.
+ * For webhooks registered with `encrypt: true`, the body is AES-256-GCM
+ * encrypted and the response includes `encrypted_payload`, `iv`, and
+ * `auth_tag` fields instead of a plain `payload`.
  *
  * Each delivery includes an `X-StellarKraal-Signature` header containing
  * `sha256=<hex>` computed with the per-webhook secret. Receivers should verify

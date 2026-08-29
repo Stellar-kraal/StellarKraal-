@@ -16,6 +16,7 @@ interface TooltipState {
 interface Props {
   value: number;          // current bps value (single-point mode)
   history?: DataPoint[];  // optional time-series for chart mode
+  loading?: boolean;      // when true, renders skeleton placeholder
 }
 
 function formatDate(iso: string) {
@@ -27,6 +28,11 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
   const circleRefs = useRef<Array<SVGCircleElement | null>>([]);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const max = Math.max(...history.map((p) => p.value), 20_000);
   const W = 100; // percentage-based viewport
@@ -105,12 +111,12 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
     <div ref={containerRef} className="relative mt-4 h-28 select-none" onMouseLeave={hideTooltip}>
       <svg viewBox={`0 0 ${W} 100`} preserveAspectRatio="none" className="w-full h-full" aria-label="Health factor history chart" role="img">
         {/* baseline */}
-        <line x1="0" y1="50" x2={W} y2="50" stroke="#4A2C0A" strokeOpacity="0.08" strokeWidth="0.5" />
+        <line x1="0" y1="50" x2={W} y2="50" style={{ stroke: 'var(--token-border-strong)' }} strokeOpacity="0.08" strokeWidth="0.5" />
 
         {/* polyline */}
         <polyline
           fill="none"
-          stroke="#D4A017"
+          style={{ stroke: 'var(--token-accent)' }}
           strokeWidth="1.5"
           strokeLinejoin="round"
           points={history
@@ -140,10 +146,16 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
               cx={px}
               cy={py}
               r={isActive ? 3 : 2}
-              fill={isActive ? color : "#D4A017"}
-              stroke={isActive ? color : "white"}
+              fill={isActive ? color : 'var(--token-accent)'}
+              stroke={isActive ? color : 'var(--token-surface-raised)'}
               strokeWidth={isActive ? 0 : 0.8}
-              style={{ cursor: "pointer", transition: "r 0.15s" }}
+              className={mounted ? "motion-safe:animate-[fadeIn_0.6s_ease-out]" : ""}
+              style={{ 
+                cursor: "pointer", 
+                transition: "r 0.15s",
+                animationDelay: `${i * 50}ms`,
+                opacity: mounted ? 1 : 0
+              }}
               onMouseEnter={(e) => show(e, point, i)}
               onTouchStart={(e) => {
                 e.preventDefault();
@@ -161,7 +173,7 @@ function HistoryChart({ history }: { history: DataPoint[] }) {
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-10 rounded-xl bg-brown text-cream text-xs px-3 py-2 shadow-lg"
+          className="pointer-events-none absolute z-10 rounded-xl bg-[color:var(--token-surface-raised)] text-[color:var(--token-text)] text-xs px-3 py-2 shadow-lg border border-[color:var(--token-border)]"
           style={{
             left: tooltip.x,
             top: tooltip.y,
@@ -223,11 +235,84 @@ const ZONES = [
   { start: 0.75, end: 1, color: '#16A34A', label: 'Safe' },
 ];
 
-export default function HealthGauge({ value }: Props) {
+/**
+ * SkeletonHealthGauge — arc-shaped skeleton placeholder.
+ * Matches the live gauge dimensions exactly (viewBox "20 20 160 90").
+ */
+export function SkeletonHealthGauge() {
+  return (
+    <div
+      className="flex flex-col items-center w-full"
+      aria-busy="true"
+      aria-label="Loading health gauge"
+      data-testid="health-gauge-skeleton"
+    >
+      <svg viewBox="20 20 160 90" className="w-full max-w-xs" aria-hidden="true">
+        {/* Background track skeleton */}
+        <path
+          d={arcPath(180, 0)}
+          fill="none"
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          className="skeleton-shimmer"
+          style={{ stroke: 'var(--color-skeleton-base)' }}
+        />
+        {/* Needle placeholder */}
+        <line
+          x1={CX}
+          y1={CY}
+          x2={CX}
+          y2={CY - (R - STROKE / 2)}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          style={{ stroke: 'var(--color-skeleton-base)' }}
+        />
+        <circle cx={CX} cy={CY} r={5} style={{ fill: 'var(--color-skeleton-base)' }} />
+        {/* Value text placeholder */}
+        <rect
+          x={CX - 18}
+          y={CY + 9}
+          width={36}
+          height={12}
+          rx={4}
+          className="skeleton-shimmer"
+          style={{ fill: 'var(--color-skeleton-base)' }}
+        />
+      </svg>
+      {/* Label placeholder */}
+      <div
+        className="skeleton-shimmer mt-1 rounded"
+        style={{ width: '3.5rem', height: '1rem', background: 'var(--color-skeleton-base)' }}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+export default function HealthGauge({ value, history, loading }: Props) {
+  if (loading) {
+    return <SkeletonHealthGauge />;
+  }
   const frac = Math.min(value / 20_000, 1); // cap at 200% (2.0x)
   const displayValue = (value / 10_000).toFixed(2);
   const color = healthColor(value);
   const label = value >= 15_000 ? 'Safe' : value >= 10_000 ? 'Warning' : 'Danger';
+
+  const prevValueRef = useRef<number>(value);
+  const [flash, setFlash] = useState(false);
+  const [direction, setDirection] = useState<'up' | 'down' | 'none'>('none');
+
+  useEffect(() => {
+    const prev = prevValueRef.current;
+    if (prev !== value) {
+      setDirection(value > prev ? 'up' : 'down');
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 1000);
+      prevValueRef.current = value;
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [value]);
 
   // Animate needle via ref to avoid re-renders
   const needleRef = useRef<SVGLineElement>(null);
@@ -260,17 +345,17 @@ export default function HealthGauge({ value }: Props) {
 
   return (
     <div
-      className="flex flex-col items-center w-full"
+      className={`flex flex-col items-center w-full ${flash ? 'motion-safe:animate-[flashHighlight_1s_ease-out]' : ''}`}
       role="status"
       aria-live="polite"
-      aria-label={`Health factor: ${displayValue}x, ${label}`}
+      aria-label={`Health factor: ${displayValue}x, ${label}${direction !== 'none' ? `, changed ${direction}` : ''}`}
     >
       <svg viewBox="20 20 160 90" className="w-full max-w-xs" aria-hidden="true">
         {/* Background track */}
         <path
           d={arcPath(180, 0)}
           fill="none"
-          stroke="#e5e7eb"
+          style={{ stroke: 'var(--token-border)' }}
           strokeWidth={STROKE}
           strokeLinecap="round"
         />
@@ -295,10 +380,11 @@ export default function HealthGauge({ value }: Props) {
           stroke={color}
           strokeWidth={STROKE}
           strokeLinecap="round"
+          className="motion-reduce:transition-none"
           style={{
             strokeDasharray: `${Math.PI * R}`,
             strokeDashoffset: `${Math.PI * R * (1 - frac)}`,
-            transition: 'stroke-dashoffset 0.8s ease-out, stroke 0.4s',
+            transition: 'stroke-dashoffset 0.6s ease-out, stroke 0.6s ease-out',
           }}
         />
 
@@ -309,23 +395,49 @@ export default function HealthGauge({ value }: Props) {
           y1={CY}
           x2={nx}
           y2={ny}
-          stroke="#1c1917"
           strokeWidth={2.5}
           strokeLinecap="round"
-          style={{ transition: 'x2 0.8s ease-out, y2 0.8s ease-out' }}
+          className="motion-reduce:transition-none"
+          style={{ stroke: 'var(--token-text)', transition: 'x2 0.6s ease-out, y2 0.6s ease-out' }}
         />
-        <circle cx={CX} cy={CY} r={5} fill="#1c1917" />
+        <circle cx={CX} cy={CY} r={5} style={{ fill: 'var(--token-text)' }} />
 
         {/* Numeric value */}
         <text x={CX} y={CY + 18} textAnchor="middle" fontSize="13" fontWeight="700" fill={color}>
           {displayValue}x
         </text>
+
+        {/* Direction indicator */}
+        {direction !== 'none' && (
+          <text
+            x={CX + 28}
+            y={CY + 10}
+            textAnchor="middle"
+            fontSize="12"
+            fontWeight="700"
+            fill={flash ? '#D97706' : color}
+            className={flash ? 'motion-safe:animate-[fadeOut_1s_ease-out]' : ''}
+            aria-hidden="true"
+          >
+            {direction === 'up' ? '▲' : '▼'}
+          </text>
+        )}
       </svg>
 
       {/* Label below */}
       <span className="text-sm font-semibold mt-1" style={{ color }}>
         {label}
       </span>
+
+      {/* Flash overlay for accessibility */}
+      {flash && (
+        <span className="sr-only" aria-live="polite">
+          Health factor {direction === 'up' ? 'increased' : 'decreased'} to {displayValue}x
+        </span>
+      )}
+
+      {/* Optional history chart */}
+      {history && history.length > 0 && <HistoryChart history={history} />}
     </div>
   );
 }

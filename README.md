@@ -32,31 +32,91 @@ flowchart LR
   end
 
   subgraph Backend
-    B -->|SQL| DB[(SQLite database)]
+    B -->|SQL| DB[(SQLite / PostgreSQL)]
     B -->|RPC| S[Soroban smart contract]
+    B -->|logs, json-file driver| PT[Promtail]
+    B -->|/metrics| PR[Prometheus]
   end
 
   subgraph Contracts
     S -->|WASM| W[(Stellar contract)]
   end
+
+  subgraph Observability
+    PT -->|push| LK[(Loki)]
+    PR -->|scrape / alert rules| GF[Grafana]
+    LK -->|query| GF[Grafana]
+  end
+
+  subgraph Infrastructure["Infrastructure (Terraform, AWS)"]
+    ECS[ECS Fargate: backend/frontend] --> RDS[(RDS PostgreSQL)]
+    ECS --> S3[(S3 backups)]
+    SNS[SNS + CloudWatch alerts] -.-> B
+  end
+
+  B -.deployed on.-> ECS
 ```
 
 ### Architecture Summary
 
 - Frontend: React + Next.js 14 with Tailwind CSS.
+- Observability: backend metrics are scraped by Prometheus (alert rules in [`observability/prometheus-rules.yml`](observability/prometheus-rules.yml)); container logs are shipped by Promtail to Loki; Grafana visualizes both. See [docs/observability.md](docs/observability.md).
+- Infrastructure: Terraform ([`terraform/`](terraform/) and [`infrastructure/`](infrastructure/)) provisions AWS resources (ECS Fargate, RDS, S3, VPC, backups, SNS/CloudWatch alerting) for staging/production.
 - Backend: Node.js + TypeScript + Express.
 - Smart contract: Rust using the Soroban SDK.
 - Infrastructure: Docker, Docker Compose, local SQLite database.
 
+### Loan State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : submit loan
+
+    Pending --> Active : request_loan()
+
+    Active --> at_risk : HF drops
+
+    at_risk --> Active : HF recovers
+
+    Active --> Repaid : repay_loan()
+
+    Active --> Liquidated : liquidate()
+
+    at_risk --> Repaid : repay_loan()
+
+    at_risk --> Liquidated : liquidate()
+
+    Repaid --> [*]
+    Liquidated --> [*]
+```
+
+Full documentation: [Loan State Machine](docs/protocol/loan-state-machine.md)
+
 ## Local Development
+
+> For a detailed, platform-specific walkthrough see **[docs/development/local-setup.md](docs/development/local-setup.md)**.
 
 ### Prerequisites
 
-- Node.js 20+
-- npm
-- Docker & Docker Compose (for containerized setup)
-- Rust toolchain and `stellar-cli` for contract work
-- Freighter browser extension for wallet integration
+Ensure the following minimum versions are installed before you begin:
+
+| Tool | Minimum version | Install |
+|------|-----------------|---------|
+| Node.js | **20.x** | [nodejs.org](https://nodejs.org/) or `nvm install 20` |
+| npm | **10.x** (bundled with Node 20) | — |
+| Rust | **1.78+** | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| stellar-cli | **22+** | `cargo install --locked stellar-cli --features opt` |
+| Docker & Docker Compose | **24+** (optional, for containerised setup) | [docs.docker.com](https://docs.docker.com/get-docker/) |
+| Freighter | latest | [freighter.app](https://www.freighter.app/) (browser extension) |
+
+Verify your environment:
+
+```bash
+node --version   # v20.x or higher
+npm --version    # 10.x or higher
+rustc --version  # 1.78.x or higher
+stellar --version # 22.x or higher
+```
 
 ### Clone and setup
 
@@ -101,6 +161,17 @@ npm run build
 npm start
 ```
 
+#### OpenAPI Specification Generation
+
+To auto-generate `openapi.json` from in-code `@openapi` route annotations:
+
+```bash
+cd backend
+npm run openapi:generate
+```
+
+This scans all annotated route handlers, generates `backend/openapi.json`, and updates the spec version to match `package.json`. CI automatically verifies that `openapi.json` is not stale.
+
 #### Frontend
 
 ```bash
@@ -115,6 +186,23 @@ npm run dev
 cd contracts/stellarkraal
 cargo test
 ```
+
+### Common Setup Errors
+
+| Symptom | Cause | Resolution |
+|---------|-------|------------|
+| `nvm: command not found` | nvm not installed | Install via [nvm install guide](https://github.com/nvm-sh/nvm#installing-and-updating), then `nvm install 20` |
+| `npm ERR! code ERESOLVE` | Node version mismatch | Ensure Node.js 20+ (`node --version`). Delete `node_modules` and re-run `npm install`. |
+| `sqlite3` build error | Missing native build tools | Run `npm rebuild sqlite3` after installing system build tools (see [local-setup.md](docs/development/local-setup.md)) |
+| `stellar: command not found` | `~/.cargo/bin` not in PATH | Add `export PATH="$HOME/.cargo/bin:$PATH"` to your shell profile |
+| `error[E0463]: can't find crate` | Wrong Rust toolchain | Run `rustup target add wasm32-unknown-unknown` inside `contracts/stellarkraal/` |
+| `PORT already in use` | Port 3001 occupied | Stop the conflicting process or set a different `PORT` in `.env` |
+| `Cannot connect to RPC_URL` | Network or config error | Verify `RPC_URL` in `.env` and network connectivity |
+| CORS errors from frontend | `FRONTEND_URL` not set | Set `FRONTEND_URL=http://localhost:3000` in your backend `.env` |
+
+For a comprehensive troubleshooting guide including Docker, contract, and database errors, see
+**[docs/troubleshooting.md](docs/troubleshooting.md)** or the platform-specific notes in
+**[docs/development/local-setup.md](docs/development/local-setup.md)**.
 
 ## Staging Environment
 
@@ -190,7 +278,7 @@ Scores are reported as a GitHub Actions step summary.
 
 Dependencies are scanned automatically:
 
-- **Dependabot** monitors `backend/` and `frontend/` npm packages weekly. PRs are labelled `dependencies` and `security`.
+- **Dependabot** monitors `backend/`, `frontend/`, and `contracts/stellarkraal/` packages weekly. PRs are labelled `dependencies` and `security`. See [docs/guides/dependabot.md](docs/guides/dependabot.md) for the triage/merge process.
 - **npm audit** runs every Monday via the [`npm-audit`](.github/workflows/npm-audit.yml) workflow. The workflow fails if any `high` or `critical` severity vulnerability is found.
 
 To run an audit locally:
@@ -199,6 +287,8 @@ To run an audit locally:
 cd backend && npm audit --audit-level=high
 cd frontend && npm audit --audit-level=high
 ```
+
+To report a security vulnerability, please read [SECURITY.md](SECURITY.md) for our full vulnerability disclosure policy, reporting instructions, response timeline, and safe harbour statement.
 
 ## Development Scripts
 
@@ -215,8 +305,40 @@ npm run test:frontend
 | Document | Description |
 |---|---|
 | [Loan State Machine](docs/protocol/loan-state-machine.md) | All loan states, valid transitions, triggering events, and on-chain event mapping |
+| [API Quickstart](docs/guides/api-quickstart.md) | Base URL, auth flow, and common `/api/v1` operations |
+| [Freighter Wallet Integration](docs/guides/freighter-integration.md) | `freighterClient.ts` API, connect/sign/disconnect flow, mock API for testing, and network mismatch detection |
+| [Rate limits](docs/guides/rate-limits.md) | Global, auth, read, and write tiers; headers and retry behavior |
 | [Liquidation Mechanism](docs/protocol/liquidation.md) | Health factor formula, liquidation threshold, partial liquidation examples |
 | [Smart Contract Interface](docs/contracts/stellarkraal-interface.md) | Soroban contract public API, error codes, state changes, and CLI invocation guide |
+| [Contract Event Listener](docs/guides/contract-event-listener.md) | Polling interval, ledger cursor tracking, event handling pipeline, and structured logging |
+| [Audit Middleware](docs/guides/audit-middleware.md) | What is logged (method, path, status, duration, user), the `redact` function, PII masking, and how to add new audit fields |
+| [Event Listener Lifecycle](docs/guides/event-listener-lifecycle.md) | When `startEventListener`/`stopEventListener` are called, how missed events replay on restart, and polling interval config |
+| [Contract API Docs](https://teslims2.github.io/StellarKraal-/contracts/) | Auto-generated `cargo doc` reference published to GitHub Pages |
+| [Observability Stack](docs/observability.md) | Prometheus metrics, Loki/Promtail logs, Grafana dashboards, alert rules, and how to extend each |
+| [API Error Code Reference](docs/api-error-codes.md) | All HTTP status codes, application error codes, and contract error codes with descriptions |
+| [CORS Configuration](docs/cors-configuration.md) | Allowed origins strategy, per-environment setup, and troubleshooting |
+| [Docker Compose Services](docs/docker-compose-services.md) | Service dependencies, startup order, health checks, and volumes |
+| [Performance Tuning Guide](docs/performance-tuning.md) | Environment variables, DB tuning, caching, and profiling guidance |
+
+## User Guides
+
+| Guide | Description |
+|---|---|
+| [Register Livestock as Collateral](docs/guides/register-collateral.md) | Step-by-step guide (English + Kiswahili) for registering animals and requesting a loan |
+| [API Integration Tutorial](docs/guides/api-integration-tutorial.md) | How an external app can register collateral, request a loan, and monitor loan status via webhooks |
+
+See also: [Help & Guides page](/help) in the app.
+
+## User Guides
+
+Step-by-step guides for borrowers are in [`docs/guides/`](docs/guides/).
+
+| Guide | Description |
+|---|---|
+| [How to Request a Loan](docs/guides/request-loan.md) | Walks through all four wizard steps: Collateral, Amount, Review, Confirm. Explains LTV, health factor, and origination fee in plain language. |
+| [How to Repay a Loan](docs/guides/repay-loan.md) | Covers partial vs full repayment, how repayment improves the health factor, repayment deadlines, and a repayment calculator example. |
+| [Understanding Liquidation](docs/guides/understanding-liquidation.md) | Borrower-facing explainer of the health factor, when liquidation occurs, worked numeric example, and how to avoid it. |
+| [Accessibility Guide](docs/guides/accessibility.md) | ARIA usage patterns, testing commands, common mistakes, and pre-PR checklist for accessible components. |
 
 ## Architecture Decision Records
 
@@ -230,6 +352,9 @@ Key design decisions are documented as ADRs in [`docs/adr/`](docs/adr/).
 | [ADR-004](docs/adr/ADR-004-nextjs-tailwind.md) | Next.js 14 + Tailwind CSS for the Frontend | Accepted |
 | [ADR-005](docs/adr/ADR-005-collateral-appraisal-model.md) | Off-chain collateral appraisal model | Accepted |
 | [ADR-006](docs/adr/ADR-006-oracle-design.md) | Multi-oracle median aggregation for price feeds | Accepted |
+| [ADR-007](docs/adr/ADR-007-oracle-twap.md) | Time-Weighted Average Price (TWAP) for liquidation price feeds | Accepted |
+| [ADR-008](docs/adr/ADR-008-webhooks.md) | Webhook-based event delivery for loan lifecycle notifications | Accepted |
+| [ADR-009](docs/adr/ADR-009-api-v2-design.md) | API v2 Design Direction (REST vs GraphQL vs tRPC) | Proposed |
 
 To add a new ADR, copy [`docs/adr/template.md`](docs/adr/template.md), increment the number, fill in all sections, and add a row to the table above.
 
@@ -239,3 +364,4 @@ website https://kraal-bloom-connect.lovable.app/
 ## License
 
 MIT © StellarKraal
+.
