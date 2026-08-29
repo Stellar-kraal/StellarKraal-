@@ -1,5 +1,6 @@
-import { SorobanRpc } from "@stellar/stellar-sdk";
+import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import { config } from "../config";
+import { dbPoolAcquiredTotal, dbPoolAvailable, dbPoolWaitMs } from "../metrics";
 
 const { Server } = SorobanRpc;
 
@@ -52,14 +53,21 @@ class ConnectionPool {
   }
 
   acquire(): SorobanRpc.Server {
+    const waitStart = Date.now();
     if (this.pool.length > 0) {
       const conn = this.pool.pop()!;
       this.inUse.add(conn);
+      dbPoolAcquiredTotal.inc();
+      dbPoolAvailable.set(this.pool.length);
+      dbPoolWaitMs.observe(Date.now() - waitStart);
       return conn;
     }
     if (this.inUse.size < this.max) {
       const conn = new Server(RPC_URL);
       this.inUse.add(conn);
+      dbPoolAcquiredTotal.inc();
+      dbPoolAvailable.set(this.pool.length);
+      dbPoolWaitMs.observe(Date.now() - waitStart);
       return conn;
     }
     throw new PoolExhaustedError();
@@ -70,6 +78,7 @@ class ConnectionPool {
     if (this.pool.length + this.inUse.size < this.max) {
       this.pool.push(conn);
     }
+    dbPoolAvailable.set(this.pool.length);
   }
 
   stats(): PoolStats {
@@ -101,5 +110,5 @@ class ConnectionPool {
   }
 }
 
-export const pool = new ConnectionPool(config.POOL_MIN, config.POOL_MAX);
+export const pool = new ConnectionPool(parseInt(config.POOL_MIN, 10), parseInt(config.POOL_MAX, 10));
 export { PoolExhaustedError };

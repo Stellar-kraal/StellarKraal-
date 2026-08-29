@@ -4,12 +4,17 @@ import KeyboardShortcutsProvider from "@/components/KeyboardShortcutsProvider";
 import Link from "next/link";
 import OfflineBanner from "@/components/OfflineBanner";
 import Navbar from "@/components/Navbar";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import ThemeProvider, { ThemeScript } from "@/components/ThemeProvider";
 import { ToastProvider, ToastContainer } from "@/components/toast";
+import SkipToContent from "@/components/SkipToContent";
+import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
+import PrintDateScript from "@/components/PrintDateScript";
 
 export const metadata: Metadata = {
   title: "StellarKraal — Livestock Micro-Lending",
   description: "Livestock-backed micro-lending on Stellar/Soroban",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -18,14 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-cream text-brown min-h-screen">
-        <KeyboardShortcutsProvider>{children}</KeyboardShortcutsProvider>
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Blocking script prevents flash-of-wrong-theme before React hydrates */}
-        <ThemeScript />
-      </head>
       <body
         className="min-h-screen overflow-x-hidden px-4"
         style={{
@@ -33,12 +31,26 @@ export default function RootLayout({
           color: "var(--color-text)",
         }}
       >
+        {/*
+         * PrintDateScript injects the current date as data-print-date on <body>
+         * so the CSS print footer (body::after { content: attr(data-print-date) })
+         * can display the print date without a server round-trip (#811).
+         */}
+        <PrintDateScript />
+        <ThemeScript />
         <ThemeProvider>
-          <ToastProvider>
-            <OfflineBanner />
-            {/* Top utility nav */}
+          <KeyboardShortcutsProvider>
+            <ToastProvider>
+              <SkipToContent />
+              <TopProgressBar />
+              <SessionTimeoutBanner />
+              <NetworkMismatchBanner />
+              <OfflineBanner />
+            {/* Top utility nav — hidden when printing */}
             <nav
-              className="flex gap-4 px-6 py-3 text-sm border-b"
+              className="flex gap-4 px-6 py-3 text-sm border-b no-print"
+              aria-label="Utility navigation"
+              data-print="hide"
               style={{
                 borderColor: "var(--color-nav-border)",
                 backgroundColor: "var(--color-nav-bg)",
@@ -89,9 +101,14 @@ export default function RootLayout({
               </Link>
             </nav>
             <Navbar />
+            <MobileBottomNav />
+            <main id="main-content" className="pb-20 md:pb-0">
             {children}
+            </main>
             <ToastContainer />
-          </ToastProvider>
+            <WhatsNewProvider />
+            </ToastProvider>
+          </KeyboardShortcutsProvider>
         </ThemeProvider>
       </body>
     </html>

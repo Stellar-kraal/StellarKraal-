@@ -4,7 +4,9 @@ import { useWizard } from '@/context/LoanWizardContext';
 import { useButtonState } from '@/hooks/useButtonState';
 import { signTransaction } from '@/lib/freighterClient';
 import { submitSignedXdr } from '@/lib/stellarUtils';
+import { invalidateLoans } from '@/lib/api';
 import { Button } from '@/components/ui';
+import { formatXlmFromStroops } from '@/lib/formatMoney';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -60,6 +62,8 @@ export default function StepConfirm({ walletAddress }: Props) {
       });
       const result = await submitSignedXdr(signedTxXdr);
       setLoanId(String(result));
+      // New loan created — drop cached loan lists so they revalidate.
+      invalidateLoans();
       submitButton.setSuccess();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Something went wrong.';
@@ -88,7 +92,7 @@ export default function StepConfirm({ walletAddress }: Props) {
           <div className="flex justify-between text-sm">
             <span className="text-brown/60">Amount received</span>
             <span className="font-semibold text-brown">
-              {parseInt(loanAmount).toLocaleString()} stroops
+              {formatXlmFromStroops(parseInt(loanAmount))}
             </span>
           </div>
           <div className="flex justify-between text-sm">
@@ -97,7 +101,7 @@ export default function StepConfirm({ walletAddress }: Props) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-brown/60">Total to repay</span>
-            <span className="font-bold text-brown">{totalRepay.toLocaleString()} stroops</span>
+            <span className="font-bold text-brown">{formatXlmFromStroops(totalRepay)}</span>
           </div>
         </div>
         <Button variant="ghost" fullWidth onClick={reset}>
@@ -112,20 +116,23 @@ export default function StepConfirm({ walletAddress }: Props) {
       <div>
         <h2 className="text-2xl font-bold text-brown">Final Summary</h2>
         <p className="text-brown/60 mt-1 text-sm">
-          This is your last chance to review before the transaction is signed.
+          This is a read-only review. Please check every detail before signing — it cannot be
+          changed once submitted.
         </p>
       </div>
 
-      {/* Summary card */}
-      <div className="bg-cream border-2 border-brown/20 rounded-2xl p-5 space-y-3">
+      {/* Read-only summary card */}
+      <div
+        className="bg-cream border-2 border-brown/20 rounded-2xl p-5 space-y-3"
+        aria-label="Loan summary"
+      >
         <div className="flex justify-between items-start">
           <div>
             <p className="text-xs text-brown/50 uppercase tracking-wider font-medium">
               You're borrowing
             </p>
             <p className="text-3xl font-bold text-brown mt-0.5">
-              {parseInt(loanAmount).toLocaleString()}
-              <span className="text-base font-normal text-brown/50 ml-1">stroops</span>
+              {formatXlmFromStroops(parseInt(loanAmount))}
             </p>
           </div>
           <div className="bg-brown/10 rounded-xl px-3 py-1.5 text-right">
@@ -136,6 +143,30 @@ export default function StepConfirm({ walletAddress }: Props) {
           </div>
         </div>
 
+        <dl className="border-t border-brown/10 pt-3 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Collateral ID</dt>
+            <dd className="font-medium text-brown font-mono">{collateralId}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Borrower wallet</dt>
+            <dd
+              className="font-medium text-brown font-mono truncate max-w-[60%]"
+              title={walletAddress}
+            >
+              {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Loan term</dt>
+            <dd className="font-medium text-brown">{loanTermDays} days</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-brown/50">Interest rate</dt>
+            <dd className="font-medium text-brown">{rate}</dd>
+          </div>
+        </dl>
+
         <div className="border-t border-brown/10 pt-3 grid grid-cols-3 gap-3 text-center">
           <div>
             <p className="text-xs text-brown/50">Term</p>
@@ -143,11 +174,11 @@ export default function StepConfirm({ walletAddress }: Props) {
           </div>
           <div>
             <p className="text-xs text-brown/50">Fee</p>
-            <p className="font-semibold text-brown">{fee.toLocaleString()}</p>
+            <p className="font-semibold text-brown">{formatXlmFromStroops(fee)}</p>
           </div>
           <div>
             <p className="text-xs text-brown/50">Repay total</p>
-            <p className="font-semibold text-brown">{totalRepay.toLocaleString()}</p>
+            <p className="font-semibold text-brown">{formatXlmFromStroops(totalRepay)}</p>
           </div>
         </div>
       </div>
