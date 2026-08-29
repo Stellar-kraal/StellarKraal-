@@ -12,15 +12,17 @@
     "test:a11y": "playwright test -c playwright-a11y.config.ts",
     "test:e2e": "playwright test -c playwright.e2e.config.ts",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "format:check": "prettier --check src",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.0.1",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^15.1.0",
+    "@testing-library/dom": "^10.4.1",
     "framer-motion": "^12.40.0",
     "next": "14.2.35",
     "react": "^19.2.6",
