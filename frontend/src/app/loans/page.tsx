@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useCallback, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import SearchFilterBar from '@/components/SearchFilterBar';
 import PageTransition from '@/components/PageTransition';
@@ -9,6 +9,7 @@ import SkeletonLoanCard from '@/components/SkeletonLoanCard';
 import Pagination from '@/components/Pagination';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import { EmptyLoansIllustration } from '@/components/illustrations';
 import { usePagination } from '@/hooks/usePagination';
 import { usePolling } from '@/hooks/usePolling';
 import { badgeVariants } from '@/lib/animations';
@@ -29,6 +30,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 function LoanListContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const reduced = useReducedMotion();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,15 +98,21 @@ function LoanListContent() {
       ) : error ? (
         <ErrorState message={error} onRetry={fetchLoans} />
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon="📋"
-          heading={q || statuses.length > 0 ? 'No Loans Found' : 'No Loans Yet'}
-          message={
-            q || statuses.length > 0
-              ? 'Try adjusting your search or filters to find loans.'
-              : "You haven't created any loans yet. Register collateral and request a loan to get started."
-          }
-        />
+        q || statuses.length > 0 ? (
+          <EmptyState
+            icon="📋"
+            heading="No Loans Found"
+            message="Try adjusting your search or filters to find loans."
+          />
+        ) : (
+          <EmptyState
+            illustration={<EmptyLoansIllustration />}
+            heading="No Loans Yet"
+            message="You haven't created any loans yet. Register collateral and request a loan to get started."
+            ctaLabel="Request a Loan"
+            onCta={() => router.push('/borrow')}
+          />
+        )
       ) : (
         <>
           <ul className="space-y-2">
