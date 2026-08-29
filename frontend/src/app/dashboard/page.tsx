@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { GlossaryTerm } from '@/components/GlossaryTerm';
 import WalletConnect from '@/components/WalletConnect';
@@ -16,11 +16,16 @@ import Card from '@/components/Card';
 import { useHealthFactor } from '@/hooks/useHealthFactor';
 import { useOnboarding } from '@/hooks/useOnboarding';
 
+/** Threshold below which the health factor is considered low-risk worthy of announcement. */
+const ANNOUNCEMENT_THRESHOLD = 15000; // 1.5x in basis-point units (10 000 = 1.0x)
+
 export default function Dashboard() {
   const router = useRouter();
   const [wallet, setWallet] = useState<string | null>(null);
   const [loanId, setLoanId] = useState('');
   const [activeLoanId, setActiveLoanId] = useState('');
+  const [announcement, setAnnouncement] = useState('');
+  const prevHealthFactor = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search.includes('mockWallet=true')) {
@@ -36,6 +41,27 @@ export default function Dashboard() {
     refresh: refreshHealth,
   } = useHealthFactor(activeLoanId);
 
+  // Announce significant health factor changes to screen readers
+  useEffect(() => {
+    if (healthFactor === null) return;
+
+    // Convert basis-point units to human-readable ratio (10 000 bp = 1.0x)
+    const ratio = (healthFactor / 10_000).toFixed(2);
+
+    if (healthFactor < ANNOUNCEMENT_THRESHOLD) {
+      setAnnouncement(`Health factor dropped to ${ratio}`);
+    } else if (
+      prevHealthFactor.current !== null &&
+      prevHealthFactor.current < ANNOUNCEMENT_THRESHOLD &&
+      healthFactor >= ANNOUNCEMENT_THRESHOLD
+    ) {
+      // Recovered above threshold — also worth announcing
+      setAnnouncement(`Health factor recovered to ${ratio}`);
+    }
+
+    prevHealthFactor.current = healthFactor;
+  }, [healthFactor]);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function handleProceedToRepay(nextLoanId: string, _amount: string) {
     setLoanId(nextLoanId);
@@ -43,6 +69,16 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
+      {/* Visually-hidden aria-live region announces health factor changes to screen readers */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        data-testid="health-factor-announcement"
+      >
+        {announcement}
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl sm:text-3xl font-bold text-brown">Dashboard</h1>
         <HelpMenu onShowOnboarding={openOnboarding} />
