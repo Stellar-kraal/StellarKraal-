@@ -1,9 +1,8 @@
 'use client';
 import { useWizard } from '@/context/LoanWizardContext';
 import { GlossaryTerm } from '@/components/GlossaryTerm';
-import { Button } from '@/components/ui';
-import { FieldTooltip } from '@/components/Tooltip';
-import { WIZARD_FIELD_TOOLTIPS } from '@/lib/wizardFieldTooltips';
+import FieldTooltip from '@/components/FieldTooltip';
+import { Input, Button } from '@/components/ui';
 import { formatXlmFromStroops } from '@/lib/formatMoney';
 import NumericInput from '@/components/NumericInput';
 
@@ -82,9 +81,12 @@ export default function StepAmount() {
         {loanAmount && maxLoan > 0 && (
           <div className="mt-2">
             <div className="flex justify-between text-xs text-brown-400 mb-1">
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-1">
                 <GlossaryTerm termKey="ltv">LTV</GlossaryTerm>
-                <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.ltvRatio} />
+                <FieldTooltip
+                  content="Loan-to-Value (LTV) is how much you borrow compared to your collateral's value. A lower LTV means less risk and more room before liquidation."
+                  label="What is LTV?"
+                />
                 : {ltv}%
               </span>
               <span>Max: 70%</span>
@@ -132,9 +134,12 @@ export default function StepAmount() {
       {/* Health factor preview */}
       {healthFactor && (
         <div className="bg-white border border-brown/20 rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-sm text-brown/70 flex items-center gap-0.5">
+          <span className="text-sm text-brown/70 flex items-center gap-1">
             <GlossaryTerm termKey="healthFactor">Est. Health Factor</GlossaryTerm>
-            <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.healthFactor} />
+            <FieldTooltip
+              content="Health Factor measures how safe your loan is. Above 1.5 is safe (green), 1.0–1.5 needs watching (yellow), below 1.0 risks liquidation (red)."
+              label="What is Health Factor?"
+            />
           </span>
           <span className={`font-bold text-lg ${healthColor}`}>{healthFactor}</span>
         </div>

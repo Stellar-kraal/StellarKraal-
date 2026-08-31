@@ -103,16 +103,15 @@ export default function StepCollateral({ walletAddress }: Props) {
     setField("loading", true);
     setField("error", null);
     try {
-      // Use first collateral item for the API call
-      const first = collaterals[0];
+      const firstItem = collaterals[0];
       const res = await fetch(`${API}/api/collateral/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           owner: walletAddress,
-          animal_type: first.animalType,
-          count: parseInt(first.count),
-          appraised_value: parseInt(first.appraisedValue),
+          animal_type: firstItem?.animalType || "cattle",
+          count: parseInt(firstItem?.count || "1"),
+          appraised_value: parseInt(firstItem?.appraisedValue || "0"),
         }),
       });
       if (!res.ok) throw new Error("Registration failed. Please try again.");
@@ -169,104 +168,90 @@ export default function StepCollateral({ walletAddress }: Props) {
               </svg>
             </div>
 
-            {/* Item fields */}
             <div className="flex-1 space-y-3">
-              {/* Animal type */}
-              <div>
-                <div className="flex items-center mb-1">
-                  <span className="text-sm font-medium text-brown">Animal Type</span>
-                  <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.animalType} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-brown/70 mb-1">
+                    Animal Type
+                  </label>
+                  <select
+                    value={item.animalType}
+                    onChange={(e) => updateItem(index, { animalType: e.target.value as AnimalType })}
+                    disabled={loading}
+                    className="w-full rounded-lg border border-brown/30 px-3 py-2 text-sm bg-white text-brown focus:outline-none focus:ring-2 focus:ring-gold"
+                  >
+                    {ANIMAL_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.emoji} {t.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="flex gap-2">
-                  {ANIMAL_TYPES.map(({ value, label, emoji }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => updateItem(index, { animalType: value })}
-                      aria-pressed={item.animalType === value}
-                      className={`flex-1 flex flex-col items-center p-2 rounded-xl border-2 text-xs transition-all ${
-                        item.animalType === value
-                          ? "border-gold bg-gold/10"
-                          : "border-brown/20 hover:border-brown/40 bg-white"
-                      }`}
-                    >
-                      <span className="text-lg">{emoji}</span>
-                      <span className="font-medium text-brown">{label}</span>
-                    </button>
-                  ))}
+
+                <div>
+                  <label className="block text-xs font-semibold text-brown/70 mb-1">
+                    Count
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Count"
+                    value={item.count}
+                    onChange={(e) => updateItem(index, { count: e.target.value })}
+                    disabled={loading}
+                    className="w-full rounded-lg border border-brown/30 px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-gold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-brown/70 mb-1">
+                    Appraised Value (stroops)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Value in stroops"
+                    value={item.appraisedValue}
+                    onChange={(e) => updateItem(index, { appraisedValue: e.target.value })}
+                    disabled={loading}
+                    className="w-full rounded-lg border border-brown/30 px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-gold"
+                  />
                 </div>
               </div>
 
-              {/* Quantity */}
-              <div>
-                <div className="flex items-center mb-1">
-                  <span className="text-sm font-medium text-brown">Number of Animals</span>
-                  <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.quantity} />
-                </div>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 5"
-                  value={item.count}
-                  onChange={(e) => updateItem(index, { count: e.target.value })}
-                  disabled={loading}
-                  aria-label={`Number of animals for item ${index + 1}`}
-                  className="w-full border border-brown/30 rounded-lg px-3 py-2 text-sm text-brown placeholder-brown/40 focus:outline-none focus:ring-2 focus:ring-gold disabled:opacity-50"
-                />
-              </div>
-
-              {/* Appraised Value */}
-              <div>
-                <div className="flex items-center mb-1">
-                  <span className="text-sm font-medium text-brown">Total Appraised Value (stroops)</span>
-                  <FieldTooltip hint={WIZARD_FIELD_TOOLTIPS.appraisedValue} />
-                </div>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 10000000"
-                  value={item.appraisedValue}
-                  onChange={(e) => updateItem(index, { appraisedValue: e.target.value })}
-                  disabled={loading}
-                  aria-label={`Appraised value for item ${index + 1}`}
-                  className="w-full border border-brown/30 rounded-lg px-3 py-2 text-sm text-brown placeholder-brown/40 focus:outline-none focus:ring-2 focus:ring-gold disabled:opacity-50"
-                />
-                {item.count && item.appraisedValue && (
-                  <p className="text-xs text-brown-400 mt-1">
-                    ≈{" "}
-                    {(parseInt(item.appraisedValue) / parseInt(item.count) / 10_000_000).toFixed(2)}{" "}
-                    XLM per head
-                  </p>
-                )}
-              </div>
-
-              {/* Remove button (only if more than one item) */}
-              {collaterals.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeItem(index)}
-                  className="text-xs text-error hover:text-error/80 transition"
-                  aria-label={`Remove collateral item ${index + 1}`}
-                >
-                  Remove
-                </button>
+              {item.count && item.appraisedValue && (
+                <p className="text-xs text-brown/60">
+                  ≈ {(parseInt(item.appraisedValue) / parseInt(item.count) / 10_000_000).toFixed(2)} XLM per head
+                </p>
               )}
             </div>
+
+            {collaterals.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeItem(index)}
+                disabled={loading}
+                aria-label="Remove item"
+                className="text-brown/40 hover:text-brown/80 p-1 text-sm font-semibold rounded focus:outline-none"
+              >
+                ✕
+              </button>
+            )}
           </li>
         ))}
       </ul>
 
-      {/* Add more collateral */}
       <button
         type="button"
         onClick={addItem}
-        className="w-full border-2 border-dashed border-brown/20 rounded-xl py-3 text-sm text-brown/50 hover:border-brown/40 hover:text-brown/70 transition"
+        disabled={loading}
+        className="w-full py-2 px-4 border border-dashed border-brown/30 rounded-xl text-sm font-medium text-brown/70 hover:bg-brown/5 transition"
       >
-        + Add another animal type
+        + Add another collateral item
       </button>
 
       {error && (
-        <div role="alert" className="bg-error-light border border-error rounded-xl px-4 py-3 text-error-dark text-sm">
+        <div role="alert" className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm">
           {error}
         </div>
       )}
