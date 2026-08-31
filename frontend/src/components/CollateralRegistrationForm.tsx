@@ -8,6 +8,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { submitVariants } from '@/lib/animations';
 import { Input, Select, Button, ErrorSummary, toSummaryErrors } from '@/components/ui';
 import { useToast } from '@/components/toast';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface Props {
   walletAddress: string;
@@ -59,6 +60,7 @@ const FIELD_IDS: Record<keyof FormErrors, string> = {
 export default function CollateralRegistrationForm({ walletAddress, onSuccess }: Props) {
   const reduced = useReducedMotion();
   const toast = useToast();
+  const { isOnline } = useNetworkStatus();
   const [formData, setFormData] = useState<FormData>({
     animalType: 'cattle',
     quantity: '',
@@ -76,10 +78,14 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -107,6 +113,13 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
     }, AUTO_SAVE_INTERVAL);
     return () => clearInterval(interval);
   }, [formData, walletAddress]);
+
+  // Revoke object URL on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   const restoreSavedData = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -214,23 +227,7 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
     return Object.keys(newErrors).length === 0;
   };
 
-  const resetForm = () => {
-    setSuccessId(null);
-    setFormData({
-      animalType: 'cattle',
-      quantity: '',
-      weight: '',
-      healthStatus: 'good',
-      location: '',
-      appraisedValue: '',
-      breed: '',
-      age: '',
-      image: null,
-    });
-    setImagePreview(null);
-    setErrors({});
-    setStatus(null);
-  };
+  const hasErrors = Object.values(errors).some(Boolean);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,6 +239,16 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
   const registerCollateral = async () => {
     setLoading(true);
     try {
+      // Build multipart/form-data so the image travels alongside the other fields
+      const body = new FormData();
+      body.append('owner', walletAddress);
+      body.append('animal_type', formData.animalType);
+      body.append('count', formData.quantity);
+      body.append('appraised_value', formData.appraisedValue);
+      if (imageFile) {
+        body.append('image', imageFile, imageFile.name);
+      }
+
       const res = await fetch(`${API}/api/v1/collateral/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -482,13 +489,17 @@ export default function CollateralRegistrationForm({ walletAddress, onSuccess }:
           variants={reduced ? undefined : submitVariants}
           animate={loading ? 'loading' : 'idle'}
           className="w-full bg-brown text-cream py-2.5 rounded-xl font-semibold hover:bg-brown/80 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          disabled={loading}
+          disabled={loading || !isOnline}
+          aria-disabled={loading || !isOnline}
+          title={!isOnline ? "You're offline" : undefined}
         >
           {loading ? (
             <>
               <Spinner />
               Processing…
             </>
+          ) : !isOnline ? (
+            "You're offline"
           ) : (
             'Register Collateral'
           )}

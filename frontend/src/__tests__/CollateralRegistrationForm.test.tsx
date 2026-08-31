@@ -187,6 +187,12 @@ describe('CollateralRegistrationForm', () => {
     fillAndSubmit();
     confirmSubmit();
 
+    // Confirm the dialog to actually submit
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Register$/ })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Register$/ }));
+
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/v1/collateral/register'),
@@ -214,6 +220,12 @@ describe('CollateralRegistrationForm', () => {
     fillAndSubmit();
     confirmSubmit();
 
+    // Confirm the dialog to actually submit
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Register$/ })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Register$/ }));
+
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/Registration failed/);
     });
@@ -237,7 +249,12 @@ describe('CollateralRegistrationForm', () => {
     fillAndSubmit();
     confirmSubmit();
 
-    // Wait for success state
+    // Confirm the dialog to actually submit
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Register$/ })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Register$/ }));
+
     await waitFor(() => {
       expect(quantityInput.value).toBe('');
     });
@@ -333,6 +350,12 @@ describe('CollateralRegistrationForm', () => {
 
       fillAndSubmit();
       confirmSubmit();
+
+      // Confirm the dialog to actually submit
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /^Register$/ })).toBeInTheDocument()
+      );
+      fireEvent.click(screen.getByRole('button', { name: /^Register$/ }));
 
       await waitFor(() => {
         expect(localStorage.getItem('stellarkraal_collateral_form')).toBeNull();
