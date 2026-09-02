@@ -98,6 +98,13 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
         ? toSummaryErrors(loanErrors, LOAN_FIELD_IDS)
         : [];
 
+  /* Success overlay state */
+  const [successOverlay, setSuccessOverlay] = useState<{
+    title: string;
+    message: string;
+    redirect: string;
+  } | null>(null);
+
   async function registerCollateral() {
     setSubmitted(true);
     if (collateralHasErrors) return;

@@ -44,6 +44,7 @@ const inputCls =
 import { useEffect, useRef } from "react";
 
 export default function RepayPanel({ walletAddress }: Props) {
+  const router = useRouter();
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
