@@ -54,6 +54,7 @@ export default function StepConfirm({ walletAddress }: Props) {
   const [feeLoading, setFeeLoading] = useState(false);
   const [feeError, setFeeError] = useState<string | null>(null);
   const submitButton = useButtonState();
+  const toast = useToast();
 
   // ── Fee estimation state ──────────────────────────────────────────────────
   const [feeXlm, setFeeXlm] = useState<number | null>(null);
@@ -115,6 +116,8 @@ export default function StepConfirm({ walletAddress }: Props) {
 
   // ── Submit handler (unchanged) ────────────────────────────────────────────
   async function handleSubmit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     submitButton.setLoading();
     setField('error', null);
     try {
@@ -144,6 +147,8 @@ export default function StepConfirm({ walletAddress }: Props) {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Something went wrong.';
       setField('error', message);
+      toast.error(message);
+      submittingRef.current = false;
       submitButton.setError();
     }
   }

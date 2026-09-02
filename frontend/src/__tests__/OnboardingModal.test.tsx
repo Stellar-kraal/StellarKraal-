@@ -1,5 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import OnboardingModal from '../components/OnboardingModal';
+import { renderHook, waitFor } from '@testing-library/react';
+import { useOnboarding } from '../hooks/useOnboarding';
 
 // Mock localStorage
 const localStorageMock = {
@@ -13,11 +15,40 @@ global.localStorage = localStorageMock as any;
 describe('OnboardingModal', () => {
   beforeEach(() => {
     localStorageMock.setItem.mockClear();
+    localStorageMock.getItem.mockReturnValue(null);
   });
 
   it('renders when open', () => {
     render(<OnboardingModal isOpen={true} onClose={() => {}} />);
     expect(screen.getByText('Connect Your Wallet')).toBeInTheDocument();
+  });
+
+  it('highlights the active workflow target', () => {
+    const target = document.createElement('button');
+    target.dataset.onboardingTarget = 'wallet';
+    target.getBoundingClientRect = () => ({
+      top: 20,
+      right: 180,
+      bottom: 60,
+      left: 80,
+      width: 100,
+      height: 40,
+      x: 80,
+      y: 20,
+      toJSON: () => ({}),
+    });
+    document.body.appendChild(target);
+
+    render(<OnboardingModal isOpen={true} onClose={() => {}} />);
+
+    expect(screen.getByTestId('onboarding-spotlight')).toBeInTheDocument();
+    target.remove();
+  });
+
+  it('auto-launches on the first visit', async () => {
+    const { result } = renderHook(() => useOnboarding());
+
+    await waitFor(() => expect(result.current.showOnboarding).toBe(true));
   });
 
   it('does not render when closed', () => {

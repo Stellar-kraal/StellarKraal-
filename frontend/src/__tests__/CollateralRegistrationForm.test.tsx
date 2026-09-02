@@ -117,6 +117,30 @@ describe('CollateralRegistrationForm', () => {
     expect(screen.getByLabelText(/Appraised Value/)).toBeInTheDocument();
   });
 
+  it('validates fields on blur and clears errors immediately on correction', () => {
+    renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} />);
+
+    const quantityInput = screen.getByPlaceholderText('Number of animals');
+    const submitButton = screen.getByRole('button', { name: /Register Collateral/ });
+
+    fireEvent.change(quantityInput, { target: { value: '-5' } });
+    fireEvent.blur(quantityInput);
+
+    expect(screen.getByText('Quantity must be a positive number')).toBeInTheDocument();
+    expect(quantityInput).toHaveAttribute('aria-describedby', 'reg-quantity-error');
+    expect(screen.getByText('Quantity must be a positive number')).toHaveAttribute(
+      'id',
+      'reg-quantity-error'
+    );
+    expect(submitButton).toBeDisabled();
+
+    fireEvent.change(quantityInput, { target: { value: '10' } });
+
+    expect(screen.queryByText('Quantity must be a positive number')).not.toBeInTheDocument();
+    expect(quantityInput).not.toHaveAttribute('aria-describedby');
+    expect(submitButton).not.toBeDisabled();
+  });
+
   it('shows validation errors for empty required fields', async () => {
     renderWithToast(<CollateralRegistrationForm walletAddress={mockWalletAddress} />);
 
