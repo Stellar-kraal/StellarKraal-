@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * StatusBadge — #539
+ * StatusBadge — #539 / #1093
  *
  * Colours are sourced from design tokens (CSS custom properties via Tailwind
  * semantic colour utilities) instead of hard-coded Tailwind palette classes.
@@ -19,9 +19,21 @@
  *
  * All token colours pass WCAG AA (≥ 4.5:1) for normal text on both
  * light and dark backgrounds — verified in docs/guides/design-tokens.md.
+ *
+ * Animation — #1093
+ * ──────────────────
+ * Status transitions animate with a subtle fade + scale entrance (200 ms).
+ * When `status` changes, the badge exits (fade + scale down) and the new
+ * badge enters (fade + scale up) via AnimatePresence keyed on `status`.
+ * Animations are suppressed when the user has `prefers-reduced-motion`
+ * enabled — `useReducedMotion()` returns true and we skip the variant
+ * spring entirely, snapping to the final value immediately.
+ * The wrapping element retains its inline-flex layout so there is no
+ * layout shift caused by the animation.
  */
 
 import React from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 export type LoanStatus = 'active' | 'repaid' | 'defaulted' | 'liquidated';
 export type CollateralStatus = 'available' | 'pledged';
@@ -38,43 +50,37 @@ interface Config {
 const STATUS_CONFIG: Record<BadgeStatus, Config> = {
   active: {
     label: 'Active',
-    classes:
-      'bg-color-success-subtle text-color-success',
+    classes: 'bg-color-success-subtle text-color-success',
     icon: '●',
     ariaLabel: 'Status: Active',
   },
   repaid: {
     label: 'Repaid',
-    classes:
-      'bg-color-primary/10 text-color-primary',
+    classes: 'bg-color-primary/10 text-color-primary',
     icon: '✓',
     ariaLabel: 'Status: Repaid',
   },
   defaulted: {
     label: 'Defaulted',
-    classes:
-      'bg-color-warning-subtle text-color-warning',
+    classes: 'bg-color-warning-subtle text-color-warning',
     icon: '⚠',
     ariaLabel: 'Status: Defaulted',
   },
   liquidated: {
     label: 'Liquidated',
-    classes:
-      'bg-color-danger-subtle text-color-danger',
+    classes: 'bg-color-danger-subtle text-color-danger',
     icon: '✕',
     ariaLabel: 'Status: Liquidated',
   },
   available: {
     label: 'Available',
-    classes:
-      'bg-color-success-subtle text-color-success',
+    classes: 'bg-color-success-subtle text-color-success',
     icon: '◆',
     ariaLabel: 'Status: Available',
   },
   pledged: {
     label: 'Pledged',
-    classes:
-      'bg-color-secondary/15 text-color-secondary',
+    classes: 'bg-color-secondary/15 text-color-secondary',
     icon: '⬡',
     ariaLabel: 'Status: Pledged',
   },
@@ -85,24 +91,77 @@ interface Props {
 }
 
 export default function StatusBadge({ status }: Props) {
+  const reducedMotion = useReducedMotion();
   const config = STATUS_CONFIG[status as BadgeStatus];
+
+  /**
+   * Variants for the fade + scale entrance/exit.
+   * When reducedMotion is true every variant resolves to the resting state
+   * immediately (duration: 0) so the badge snaps without any movement.
+   */
+  const variants = {
+    initial: reducedMotion
+      ? { opacity: 1, scale: 1 }
+      : { opacity: 0, scale: 0.85 },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      transition: reducedMotion
+        ? { duration: 0 }
+        : { duration: 0.2, ease: 'easeOut' as const },
+    },
+    exit: reducedMotion
+      ? { opacity: 1, scale: 1 }
+      : {
+          opacity: 0,
+          scale: 0.85,
+          transition: { duration: 0.15, ease: 'easeIn' as const },
+        },
+  };
 
   if (!config) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-color-surface text-color-text-subtle">
-        {status}
+      /* Wrap in a non-animated span to keep layout stable for fallback */
+      <span className="inline-flex items-center">
+        <motion.span
+          key={status}
+          variants={variants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-color-surface text-color-text-subtle"
+        >
+          {status}
+        </motion.span>
       </span>
     );
   }
 
   return (
-    <span
-      role="status"
-      aria-label={config.ariaLabel}
-      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${config.classes}`}
-    >
-      <span aria-hidden="true">{config.icon}</span>
-      {config.label}
+    /*
+     * AnimatePresence re-mounts the inner motion.span whenever `status`
+     * changes (keyed by `status`), triggering the exit of the old badge
+     * and the entrance of the new one.
+     *
+     * The outer <span> is a plain inline-flex container so the surrounding
+     * layout never reflows — the animated child fills the same space.
+     */
+    <span className="inline-flex items-center" data-testid="status-badge-wrapper">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={status}
+          role="status"
+          aria-label={config.ariaLabel}
+          variants={variants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${config.classes}`}
+        >
+          <span aria-hidden="true">{config.icon}</span>
+          {config.label}
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 }
