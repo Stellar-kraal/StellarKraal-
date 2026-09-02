@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { healthColor } from '@/lib/design-tokens';
 
 interface DataPoint {
@@ -298,6 +299,8 @@ export default function HealthGauge({ value, history, loading }: Props) {
   const color = healthColor(value);
   const label = value >= 15_000 ? 'Safe' : value >= 10_000 ? 'Warning' : 'Danger';
 
+  const reducedMotion = useReducedMotion();
+
   const prevValueRef = useRef<number>(value);
   const [flash, setFlash] = useState(false);
   const [direction, setDirection] = useState<'up' | 'down' | 'none'>('none');
@@ -343,6 +346,14 @@ export default function HealthGauge({ value, history, loading }: Props) {
   const nx = CX + (R - STROKE / 2) * Math.cos(needleRad);
   const ny = CY + (R - STROKE / 2) * Math.sin(needleRad);
 
+  /**
+   * Transition duration strings — 0s when the user prefers reduced motion so
+   * every CSS transition snaps to the final value immediately. This supplements
+   * the existing `motion-reduce:transition-none` Tailwind classes and ensures
+   * the inline `style` transitions also respect the preference.
+   */
+  const transitionDuration = reducedMotion ? '0s' : '0.6s';
+
   return (
     <div
       className={`flex flex-col items-center w-full ${flash ? 'motion-safe:animate-[flashHighlight_1s_ease-out]' : ''}`}
@@ -384,7 +395,7 @@ export default function HealthGauge({ value, history, loading }: Props) {
           style={{
             strokeDasharray: `${Math.PI * R}`,
             strokeDashoffset: `${Math.PI * R * (1 - frac)}`,
-            transition: 'stroke-dashoffset 0.6s ease-out, stroke 0.6s ease-out',
+            transition: `stroke-dashoffset ${transitionDuration} ease-out, stroke ${transitionDuration} ease-out`,
           }}
         />
 
@@ -398,7 +409,10 @@ export default function HealthGauge({ value, history, loading }: Props) {
           strokeWidth={2.5}
           strokeLinecap="round"
           className="motion-reduce:transition-none"
-          style={{ stroke: 'var(--token-text)', transition: 'x2 0.6s ease-out, y2 0.6s ease-out' }}
+          style={{
+            stroke: 'var(--token-text)',
+            transition: `x2 ${transitionDuration} ease-out, y2 ${transitionDuration} ease-out`,
+          }}
         />
         <circle cx={CX} cy={CY} r={5} style={{ fill: 'var(--token-text)' }} />
 
