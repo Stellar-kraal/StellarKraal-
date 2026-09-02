@@ -96,7 +96,14 @@ function StatusBadge({ status }: { status?: string }) {
   );
 }
 
-export default function TransactionHistory({ walletAddress }: { walletAddress: string }) {
+interface TransactionHistoryProps {
+  /** Wallet address to scope the transaction list to (dashboard usage). */
+  walletAddress?: string;
+  /** Collateral ID to scope the transaction list to (collateral detail page — #530). */
+  collateralId?: string;
+}
+
+export default function TransactionHistory({ walletAddress, collateralId }: TransactionHistoryProps) {
   useScrollPosition();
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -106,7 +113,10 @@ export default function TransactionHistory({ walletAddress }: { walletAddress: s
   const fetchTransactions = useCallback(() => {
     setLoaded(false);
     setError(null);
-    fetch(`${API}/api/transactions?borrower=${walletAddress}`)
+    const params = new URLSearchParams();
+    if (collateralId) params.set('collateralId', collateralId);
+    if (walletAddress) params.set('borrower', walletAddress);
+    fetch(`${API}/api/transactions?${params.toString()}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Server error: ${r.status}`);
         return r.json();
@@ -119,7 +129,7 @@ export default function TransactionHistory({ walletAddress }: { walletAddress: s
         setTransactions([]);
       })
       .finally(() => setLoaded(true));
-  }, [walletAddress]);
+  }, [walletAddress, collateralId]);
 
   useEffect(() => {
     fetchTransactions();

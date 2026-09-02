@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { signTransaction } from "@/lib/freighterClient";
 import { submitSignedXdr } from "@/lib/stellarUtils";
-import { invalidateLoans } from "@/lib/api";
+import { invalidateLoans, throwIfNotOk } from "@/lib/api";
+import { classifyApiError } from "@/lib/apiErrorToast";
 import Tooltip from "@/components/Tooltip";
 import { colors } from "@/lib/design-tokens";
 import Card from "@/components/Card";
@@ -43,6 +44,7 @@ const inputCls =
 import { useEffect, useRef } from "react";
 
 export default function RepayPanel({ walletAddress }: Props) {
+  const router = useRouter();
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,10 +91,7 @@ export default function RepayPanel({ walletAddress }: Props) {
           amount: parseInt(amount, 10),
         }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Repayment failed');
-      }
+      await throwIfNotOk(res);
       const { xdr } = await res.json();
       const { signedTxXdr } = await signTransaction(xdr, {
         network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
@@ -103,8 +102,10 @@ export default function RepayPanel({ walletAddress }: Props) {
       toast.success("Repayment submitted successfully!");
       setLoanId("");
       setAmount("");
-    } catch (e: any) {
-      toast.error(e.message || "Something went wrong. Please try again.");
+    } catch (e) {
+      // #532: classify network / 4xx / 5xx failures into the right toast.
+      const { variant, message } = classifyApiError(e);
+      toast[variant](message);
     } finally {
       setLoading(false);
     }

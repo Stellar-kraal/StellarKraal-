@@ -55,9 +55,17 @@ jest.mock('@/components/PriceChart', () => ({
 }));
 
 // Mock Sparkline
-jest.mock("@/components/Sparkline", () => ({
-  default: () => <div data-testid="sparkline-mock" />,
-}));
+jest.mock("@/components/Sparkline", () => {
+  const SparklineMock = () => <div data-testid="sparkline-mock" />;
+  return SparklineMock;
+});
+
+// Mock TransactionHistory (#530) to prevent fetch conflicts in tests — it issues
+// its own independent request and is covered by its own test suite.
+jest.mock('@/components/TransactionHistory', () => {
+  const TransactionHistoryMock = () => <div data-testid="transaction-history-mock" />;
+  return TransactionHistoryMock;
+});
 
 const mockRecord = {
   id: 'col-1',
@@ -121,6 +129,20 @@ describe('CollateralDetailPage', () => {
     expect(rows[1].textContent).toMatch(/5(\.00)?/);
     // Oldest: 45_000_000 stroops = 4.5 XLM
     expect(rows[2].textContent).toMatch(/4\.5/);
+  });
+
+  it('renders the transaction history section for this collateral (#530)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => mockRecord,
+    } as Response);
+
+    render(<CollateralDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('transaction-history-mock')).toBeInTheDocument();
+    });
   });
 
   it('renders back link to dashboard', async () => {

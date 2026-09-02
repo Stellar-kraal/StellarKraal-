@@ -6,8 +6,15 @@
  * plus accessibility attributes and keyboard navigation.
  */
 import React from "react";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import WalletConnect from "../components/WalletConnect";
+
+// focus-trap-react needs a working DOM — mock it so tests don't need jsdom full setup
+// (WalletConnect renders a ConfirmDialog on disconnect — #529)
+jest.mock("focus-trap-react", () => ({
+  __esModule: true,
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
 
 // ── Mock the useWallet hook so we control every state ──────────────────────
 const mockConnect = jest.fn();
@@ -115,10 +122,40 @@ describe("WalletConnect — connected state", () => {
     expect(screen.getByRole("button", { name: /disconnect/i })).toBeTruthy();
   });
 
-  it("calls disconnect() when Disconnect is clicked", () => {
+  // ── #529: Disconnect now opens a confirmation dialog instead of
+  // ── disconnecting immediately, to prevent an accidental logout.
+  it("does not call disconnect() immediately when Disconnect is clicked", () => {
     render(<WalletConnect onConnect={jest.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /disconnect/i }));
+    expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+
+  it("opens a confirmation dialog when Disconnect is clicked", () => {
+    render(<WalletConnect onConnect={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /disconnect/i }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByText(/disconnect wallet\?/i)).toBeTruthy();
+  });
+
+  it("calls disconnect() when the confirmation dialog is confirmed", () => {
+    render(<WalletConnect onConnect={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /disconnect/i }));
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /disconnect wallet and end session/i }));
+
     expect(mockDisconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call disconnect() when the confirmation dialog is cancelled", () => {
+    render(<WalletConnect onConnect={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /disconnect/i }));
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
+
+    expect(mockDisconnect).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("has a status role announcing the connected address", () => {

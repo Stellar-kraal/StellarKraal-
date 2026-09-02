@@ -141,4 +141,5 @@ Retry behavior:
 - Events fired from: `backend/src/services/loanService.ts` — `requestLoan()`, `repayLoan()`, `liquidateLoan()`.
 - Tests: `backend/src/webhooks.test.ts` (unit), `backend/src/webhooks.encryption.test.ts` (encryption round-trip), `backend/src/webhooks.events.test.ts` (event type integration).
 - Related: [ADR-002](ADR-002-jwt-auth.md) (authentication strategy — webhooks use a separate HMAC model, not JWT).
+- **Payload reference:** [docs/guides/webhooks.md](../guides/webhooks.md) — JSON schemas, example payloads, signature verification steps, and encrypted-delivery decryption guide for each event type.
 - **Future improvements to consider:** durable storage (database-backed registry and logs), per-event topic filtering, delivery ordering guarantees, admin auth on management endpoints, secret rotation, dead-letter queue integration.

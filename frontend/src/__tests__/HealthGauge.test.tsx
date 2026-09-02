@@ -7,6 +7,22 @@ jest.mock('../lib/design-tokens', () => ({
   colors: { text: { secondary: 'text-brown-600' } },
 }));
 
+// ── framer-motion mock (#1093) ────────────────────────────────────────────────
+let mockReducedMotion = false;
+jest.mock('framer-motion', () => ({
+  ...jest.requireActual('framer-motion'),
+  useReducedMotion: () => mockReducedMotion,
+}));
+
+beforeEach(() => {
+  mockReducedMotion = false;
+});
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 describe('HealthGauge', () => {
   it('shows Safe label when hf >= 15_000', () => {
     render(<HealthGauge value={15_000} />);
@@ -311,5 +327,55 @@ describe('HealthGauge skeleton', () => {
     // Both use the same viewBox and className, so no layout shift
     expect(skeletonSvg!.getAttribute('viewBox')).toBe(gaugeSvg!.getAttribute('viewBox'));
     expect(skeletonSvg!.getAttribute('class')).toBe(gaugeSvg!.getAttribute('class'));
+  });
+});
+
+// ── #1093: prefers-reduced-motion via useReducedMotion ───────────────────────
+
+describe('HealthGauge — reduced-motion (#1093)', () => {
+  it('sets transition duration to 0s on progress arc when reduced-motion is true', () => {
+    mockReducedMotion = true;
+    const { container } = render(<HealthGauge value={12_000} />);
+    const paths = container.querySelectorAll('path');
+    const progressArc = Array.from(paths).find(
+      (p) => p.style.strokeDashoffset !== '',
+    );
+    expect(progressArc).toBeTruthy();
+    // Duration should be 0s when reducedMotion is true
+    expect(progressArc!.style.transition).toMatch(/0s/);
+  });
+
+  it('sets transition duration to 0s on needle when reduced-motion is true', () => {
+    mockReducedMotion = true;
+    const { container } = render(<HealthGauge value={12_000} />);
+    const needle = container.querySelector('line');
+    expect(needle).toBeTruthy();
+    expect(needle!.style.transition).toMatch(/0s/);
+  });
+
+  it('uses non-zero transition duration on progress arc when reduced-motion is false', () => {
+    mockReducedMotion = false;
+    const { container } = render(<HealthGauge value={12_000} />);
+    const paths = container.querySelectorAll('path');
+    const progressArc = Array.from(paths).find(
+      (p) => p.style.strokeDashoffset !== '',
+    );
+    expect(progressArc).toBeTruthy();
+    expect(progressArc!.style.transition).toMatch(/0\.6s/);
+  });
+
+  it('uses non-zero transition duration on needle when reduced-motion is false', () => {
+    mockReducedMotion = false;
+    const { container } = render(<HealthGauge value={12_000} />);
+    const needle = container.querySelector('line');
+    expect(needle).toBeTruthy();
+    expect(needle!.style.transition).toMatch(/0\.6s/);
+  });
+
+  it('still renders correctly with reduced-motion enabled', () => {
+    mockReducedMotion = true;
+    render(<HealthGauge value={15_000} />);
+    expect(screen.getByText('Safe')).toBeTruthy();
+    expect(screen.getByText('1.50x')).toBeTruthy();
   });
 });

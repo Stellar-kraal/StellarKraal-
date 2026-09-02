@@ -1,114 +1,143 @@
 /**
- * Tests for KeyboardShortcutsProvider — #1098
+ * Tests for KeyboardShortcutsProvider — #531, #1098
  *
- * Verifies:
- * - '?' instantly toggles the overlay open and closed
- * - Overlay has role='dialog'
- * - New shortcuts: 'n' navigates to /borrow
- * - Chord 'g d' navigates to /dashboard
- * - Chord 'g c' navigates to /collateral
- * - Shortcuts disabled when focus is in an input
+ * Covers:
+ *   - '?' instantly toggles the shortcuts modal open and closed
+ *   - '?' is ignored while an input/textarea is focused
+ *   - the modal has role='dialog' and lists all registered shortcuts
+ *   - Escape closes the modal
+ *   - a consumer button using useShortcutsHelp() opens the same modal (#531)
+ *   - useShortcutsHelp() degrades gracefully outside the provider (#531)
+ *   - new shortcuts: 'n' navigates to /borrow (#1098)
+ *   - chord 'g d' navigates to /dashboard, chord 'g c' navigates to /collateral (#1098)
+ *   - shortcuts are disabled when focus is in an input/textarea
  */
 import React from "react";
 import { render, screen, act, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import KeyboardShortcutsProvider, {
+  useShortcutsHelp,
+} from "../components/KeyboardShortcutsProvider";
 
-// ── Mocks ────────────────────────────────────────────────────────────────────
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+// focus-trap-react needs a working DOM — mock it so tests don't need jsdom full setup
 jest.mock("focus-trap-react", () => {
   const MockFocusTrap = ({ children }: { children: React.ReactNode }) => <>{children}</>;
   MockFocusTrap.displayName = "MockFocusTrap";
   return MockFocusTrap;
 });
 
-import KeyboardShortcutsProvider from "../components/KeyboardShortcutsProvider";
+/** Stand-in for the Navbar trigger button, exercising the context consumer. */
+function TriggerButton() {
+  const shortcutsHelp = useShortcutsHelp();
+  return (
+    <button onClick={() => shortcutsHelp?.openShortcutsHelp()}>Show keyboard shortcuts</button>
+  );
+}
 
-function fireKey(key: string, opts: Partial<KeyboardEventInit> = {}) {
+function press(key: string, opts: Partial<KeyboardEventInit> = {}) {
   fireEvent.keyDown(window, { key, ...opts });
 }
 
-describe("KeyboardShortcutsProvider (#1098)", () => {
+describe("KeyboardShortcutsProvider (#531, #1098)", () => {
   beforeEach(() => {
     mockPush.mockClear();
   });
 
-  it("opens the overlay on first '?' press", () => {
+  it("opens the shortcuts modal when '?' is pressed", () => {
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
     expect(screen.queryByRole("dialog")).toBeNull();
-    fireKey("?");
-    expect(screen.getByRole("dialog")).toBeDefined();
+    press("?");
+    expect(screen.getByRole("dialog", { name: /keyboard shortcuts/i })).toBeInTheDocument();
   });
 
-  it("closes the overlay on second '?' press (toggle)", () => {
+  it("closes the modal on second '?' press (toggle)", () => {
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("?");
-    expect(screen.getByRole("dialog")).toBeDefined();
-    fireKey("?");
+    press("?");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    press("?");
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("does not open overlay when '?' is pressed inside an input", () => {
+  it("does not open the modal when '?' is pressed while an input is focused", () => {
     render(
       <KeyboardShortcutsProvider>
-        <input data-testid="search-input" />
+        <input aria-label="some field" />
       </KeyboardShortcutsProvider>
     );
 
-    const input = screen.getByTestId("search-input");
-    input.focus();
-    fireEvent.keyDown(input, { key: "?" });
+    const field = screen.getByLabelText("some field");
+    field.focus();
+    fireEvent.keyDown(field, { key: "?" });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("overlay contains role='dialog' and lists shortcuts", () => {
+  it("lists all registered shortcuts in the modal", () => {
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("?");
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toBeDefined();
-    // Check at least one shortcut description
-    expect(screen.getByText("New loan request")).toBeDefined();
+    press("?");
+    expect(screen.getByText("Go to Home")).toBeInTheDocument();
+    expect(screen.getByText("Go to Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Borrow (get a loan)")).toBeInTheDocument();
+    expect(screen.getByText("New loan request")).toBeInTheDocument();
   });
 
-  it("closes overlay via Escape key", () => {
+  it("closes the modal when Escape is pressed", () => {
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("?");
-    expect(screen.getByRole("dialog")).toBeDefined();
-    fireKey("Escape");
+    press("?");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("a consumer button using useShortcutsHelp() opens the same modal", () => {
+    render(
+      <KeyboardShortcutsProvider>
+        <TriggerButton />
+      </KeyboardShortcutsProvider>
+    );
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /show keyboard shortcuts/i }));
+    expect(screen.getByRole("dialog", { name: /keyboard shortcuts/i })).toBeInTheDocument();
+  });
+
+  it("useShortcutsHelp() returns null outside the provider (graceful degrade)", () => {
+    // Rendering the trigger button with no provider should not throw.
+    expect(() => render(<TriggerButton />)).not.toThrow();
   });
 
   it("navigates to /borrow on 'n' keypress", () => {
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("n");
+    press("n");
     expect(mockPush).toHaveBeenCalledWith("/borrow");
   });
 
@@ -116,12 +145,12 @@ describe("KeyboardShortcutsProvider (#1098)", () => {
     jest.useFakeTimers();
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("g");
-    fireKey("d");
+    press("g");
+    press("d");
     expect(mockPush).toHaveBeenCalledWith("/dashboard");
     jest.useRealTimers();
   });
@@ -130,12 +159,12 @@ describe("KeyboardShortcutsProvider (#1098)", () => {
     jest.useFakeTimers();
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("g");
-    fireKey("c");
+    press("g");
+    press("c");
     expect(mockPush).toHaveBeenCalledWith("/collateral");
     jest.useRealTimers();
   });
@@ -144,13 +173,13 @@ describe("KeyboardShortcutsProvider (#1098)", () => {
     jest.useFakeTimers();
     render(
       <KeyboardShortcutsProvider>
-        <div>app</div>
+        <div>content</div>
       </KeyboardShortcutsProvider>
     );
 
-    fireKey("g");
+    press("g");
     act(() => jest.advanceTimersByTime(1600));
-    fireKey("d");
+    press("d");
     // After timeout, 'd' should act as its own shortcut (go to /dashboard via base shortcut)
     // Not as a chord — either way, push was not called twice for the chord pattern
     jest.useRealTimers();
