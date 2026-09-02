@@ -9,6 +9,8 @@ import { Input, Select, ErrorSummary, toSummaryErrors } from '@/components/ui';
 import FieldTooltip from '@/components/FieldTooltip';
 import { useFetchWithRateLimit } from '@/hooks/useFetchWithRateLimit';
 import { useNetworkMismatch } from '@/hooks/useNetworkMismatch';
+import { throwIfNotOk } from '@/lib/api';
+import { classifyApiError } from '@/lib/apiErrorToast';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface Props {
@@ -112,10 +114,7 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
           appraised_value: parseInt(appraisedValue),
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Registration failed');
-      }
+      await throwIfNotOk(res);
       const { xdr } = await res.json();
       const { signedTxXdr } = await signTransaction(xdr, {
         network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
@@ -125,7 +124,9 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
       setSubmitted(false);
       setStep('loan');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Registration failed');
+      // #532: classify network / 4xx / 5xx failures into the right toast.
+      const { variant, message } = classifyApiError(e);
+      toast[variant](message);
     } finally {
       setLoading(false);
     }
@@ -146,10 +147,7 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
           amount: parseInt(loanAmount),
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Loan request failed');
-      }
+      await throwIfNotOk(res);
       const { xdr } = await res.json();
       const { signedTxXdr } = await signTransaction(xdr, {
         network: process.env.NEXT_PUBLIC_NETWORK || 'TESTNET',
@@ -157,7 +155,9 @@ export default function LoanForm({ walletAddress, initialCollateralId }: Props) 
       const result = await submitSignedXdr(signedTxXdr);
       setSuccessLoanId(String(result));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Loan request failed');
+      // #532: classify network / 4xx / 5xx failures into the right toast.
+      const { variant, message } = classifyApiError(e);
+      toast[variant](message);
     } finally {
       setLoading(false);
     }

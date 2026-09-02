@@ -1,7 +1,8 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import Spinner from "@/components/Spinner";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Props {
   onConnect: (address: string) => void;
@@ -19,14 +20,23 @@ interface Props {
  * All state transitions animate with a 150 ms fade via the `wc-fade`
  * CSS animation defined in globals.css. The component is keyboard-navigable
  * and screen-reader friendly (aria-live region announces state changes).
+ *
+ * Disconnecting — #529: clicking "Disconnect" opens a ConfirmDialog instead of
+ * immediately ending the session, so an accidental click can't log the user out.
  */
 export default function WalletConnect({ onConnect }: Props) {
   const { address, freighterInstalled, connecting, error, connect, disconnect } =
     useWallet();
+  const [confirmDisconnectOpen, setConfirmDisconnectOpen] = useState(false);
 
   useEffect(() => {
     if (address) onConnect(address);
   }, [address, onConnect]);
+
+  function handleConfirmDisconnect() {
+    disconnect();
+    setConfirmDisconnectOpen(false);
+  }
 
   // While Freighter detection is still in progress, render nothing.
   if (freighterInstalled === null) return null;
@@ -54,35 +64,50 @@ export default function WalletConnect({ onConnect }: Props) {
   if (address) {
     const truncated = `${address.slice(0, 8)}…${address.slice(-6)}`;
     return (
-      <div
-        className="wc-fade mb-6 flex items-center justify-between gap-4 rounded-xl
-          border border-[color:var(--token-border)] bg-[color:var(--token-success-subtle)]
-          px-4 py-3 text-sm"
-        role="status"
-        aria-label={`Wallet connected: ${truncated}`}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Green status dot */}
-          <span
-            className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-[color:var(--token-success)]"
-            aria-hidden="true"
-          />
-          <span className="font-mono text-[color:var(--token-success)] truncate font-semibold">
-            {truncated}
-          </span>
-        </div>
-        <button
-          onClick={disconnect}
-          className="flex-shrink-0 rounded-lg border border-[color:var(--token-border-strong)]
-            bg-transparent px-3 py-1.5 text-xs font-semibold text-[color:var(--token-text-subtle)]
-            transition-colors hover:bg-[color:var(--token-surface-raised)]
-            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--token-accent)]
-            focus-visible:ring-offset-1"
-          aria-label="Disconnect wallet"
+      <>
+        <div
+          className="wc-fade mb-6 flex items-center justify-between gap-4 rounded-xl
+            border border-[color:var(--token-border)] bg-[color:var(--token-success-subtle)]
+            px-4 py-3 text-sm"
+          role="status"
+          aria-label={`Wallet connected: ${truncated}`}
         >
-          Disconnect
-        </button>
-      </div>
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Green status dot */}
+            <span
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-[color:var(--token-success)]"
+              aria-hidden="true"
+            />
+            <span className="font-mono text-[color:var(--token-success)] truncate font-semibold">
+              {truncated}
+            </span>
+          </div>
+          <button
+            onClick={() => setConfirmDisconnectOpen(true)}
+            className="flex-shrink-0 rounded-lg border border-[color:var(--token-border-strong)]
+              bg-transparent px-3 py-1.5 text-xs font-semibold text-[color:var(--token-text-subtle)]
+              transition-colors hover:bg-[color:var(--token-surface-raised)]
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--token-accent)]
+              focus-visible:ring-offset-1"
+            aria-label="Disconnect wallet"
+          >
+            Disconnect
+          </button>
+        </div>
+
+        {/* Disconnect confirmation — #529: prevent accidental logout */}
+        <ConfirmDialog
+          open={confirmDisconnectOpen}
+          title="Disconnect wallet?"
+          message="You'll need to reconnect Freighter to view your loans and collateral again. Your session will end."
+          confirmLabel="Disconnect"
+          cancelLabel="Cancel"
+          variant="destructive"
+          destructiveAriaLabel="Disconnect wallet and end session"
+          onConfirm={handleConfirmDisconnect}
+          onCancel={() => setConfirmDisconnectOpen(false)}
+        />
+      </>
     );
   }
 

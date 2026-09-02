@@ -136,7 +136,7 @@ describe("RepayPanel", () => {
     );
   });
 
-  it("shows error toast on API error", async () => {
+  it("shows a connection-failed toast on network error (#532)", async () => {
     (global as any).fetch = jest.fn().mockRejectedValue(new Error("Network error"));
 
     renderPanel();
@@ -145,7 +145,41 @@ describe("RepayPanel", () => {
     fireEvent.click(screen.getByText("Repay"));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("Network error")
+      expect(screen.getByRole("alert")).toHaveTextContent("Connection failed")
+    );
+  });
+
+  it("shows the API's own message in a warning toast on a 4xx response (#532)", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "amount exceeds outstanding balance" }),
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByPlaceholderText("Loan ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount (stroops)"), { target: { value: "100" } });
+    fireEvent.click(screen.getByText("Repay"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("amount exceeds outstanding balance")
+    );
+  });
+
+  it("shows a generic 'Server error' toast on a 5xx response (#532)", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "internal boom" }),
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByPlaceholderText("Loan ID"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Amount (stroops)"), { target: { value: "100" } });
+    fireEvent.click(screen.getByText("Repay"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Server error")
     );
   });
 

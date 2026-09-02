@@ -1,20 +1,35 @@
 "use client";
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useKeyboardShortcuts, Shortcut } from "@/hooks/useKeyboardShortcuts";
 import ShortcutsHelpModal from "@/components/ShortcutsHelpModal";
-import { useWallet } from "@/hooks/useWallet";
-import ShortcutsHelpOverlay from "@/components/ShortcutsHelpOverlay";
+
+interface ShortcutsHelpContextValue {
+  /** Opens the keyboard-shortcuts cheat sheet modal — used by the Navbar trigger button (#531). */
+  openShortcutsHelp: () => void;
+}
+
+export const ShortcutsHelpContext = createContext<ShortcutsHelpContextValue | null>(null);
 
 /**
- * KeyboardShortcutsProvider — #1098
+ * Access the shortcuts-help modal trigger from anywhere inside
+ * KeyboardShortcutsProvider (e.g. the Navbar's keyboard icon button — #531).
+ * Returns null when rendered outside the provider so callers can degrade
+ * gracefully (mirrors the ToastContext pattern in ToastPositionSelector).
+ */
+export function useShortcutsHelp(): ShortcutsHelpContextValue | null {
+  return useContext(ShortcutsHelpContext);
+}
+
+/**
+ * KeyboardShortcutsProvider — #531, #1098
  *
- * Registers global keyboard shortcuts and renders the help overlay.
+ * Registers global keyboard shortcuts and renders the help modal.
  *
  * Toggle behaviour (changed from hold-500ms to instant toggle):
- *   Press '?' once → overlay opens.
- *   Press '?' again → overlay closes.
- *   Press Escape  → overlay closes.
+ *   Press '?' once → modal opens.
+ *   Press '?' again → modal closes.
+ *   Press Escape  → modal closes.
  *   Shortcuts are suppressed when focus is in any input/textarea/select.
  *
  * Shortcuts registered:
@@ -31,6 +46,10 @@ export default function KeyboardShortcutsProvider({ children }: { children: Reac
   const router = useRouter();
   const [helpOpen, setHelpOpen] = useState(false);
 
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  const closeHelp = useCallback(() => setHelpOpen(false), []);
+  const toggleHelp = useCallback(() => setHelpOpen((v) => !v), []);
+
   // Chord state: tracks whether the first key of a multi-key sequence was pressed
   const chordRef = useRef<string | null>(null);
   const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,8 +62,8 @@ export default function KeyboardShortcutsProvider({ children }: { children: Reac
     { key: "n",      hint: "N",         label: "New loan request",          action: () => router.push("/borrow") },
     { key: "g d",    hint: "G then D",  label: "Go to Dashboard (chord)",   action: () => router.push("/dashboard") },
     { key: "g c",    hint: "G then C",  label: "Go to Collateral (chord)",  action: () => router.push("/collateral") },
-    { key: "Escape", hint: "Esc",       label: "Close modal / cancel",      action: () => setHelpOpen(false) },
-  ], [router]);
+    { key: "Escape", hint: "Esc",       label: "Close modal / cancel",      action: closeHelp },
+  ], [router, closeHelp]);
 
   // Base shortcuts exclude chord shortcuts — chords are handled separately below
   const baseShortcuts = useMemo(
@@ -57,7 +76,7 @@ export default function KeyboardShortcutsProvider({ children }: { children: Reac
   // '?' instant toggle — distinct from base shortcuts to avoid isInputFocused() guard
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Close overlay on Escape (this fires even when dialog is open since
+      // Close modal on Escape (this fires even when dialog is open since
       // useKeyboardShortcuts suppresses keys when a dialog is present)
       if (e.key === "Escape") {
         setHelpOpen(false);
@@ -70,13 +89,13 @@ export default function KeyboardShortcutsProvider({ children }: { children: Reac
         if (tag === "input" || tag === "textarea" || tag === "select") return;
 
         e.preventDefault();
-        setHelpOpen((v) => !v);
+        toggleHelp();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [toggleHelp]);
 
   // Chord shortcuts: g+d and g+c
   useEffect(() => {
@@ -86,7 +105,7 @@ export default function KeyboardShortcutsProvider({ children }: { children: Reac
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
-      // Suppress chords when overlay (dialog) is open
+      // Suppress chords when modal (dialog) is open
       if (document.querySelector('[role="dialog"]')) return;
 
       if (chordRef.current === "g") {
@@ -123,12 +142,14 @@ export default function KeyboardShortcutsProvider({ children }: { children: Reac
     };
   }, [router]);
 
+  const contextValue = useMemo(() => ({ openShortcutsHelp: openHelp }), [openHelp]);
+
   return (
-    <>
+    <ShortcutsHelpContext.Provider value={contextValue}>
       {children}
       {helpOpen && (
-        <ShortcutsHelpOverlay shortcuts={shortcuts} onClose={() => setHelpOpen(false)} />
+        <ShortcutsHelpModal shortcuts={shortcuts} onClose={closeHelp} />
       )}
-    </>
+    </ShortcutsHelpContext.Provider>
   );
 }

@@ -8,6 +8,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/hooks/usePagination', () => ({
+  ...jest.requireActual('@/hooks/usePagination'),
   usePagination: () => ({
     page: 1,
     limit: 10,
@@ -192,6 +193,19 @@ describe('TransactionHistory', () => {
     headers.forEach((th) => {
       expect(th).toHaveAttribute('scope', 'col');
     });
+  });
+
+  it('scopes the request to a collateral ID when collateralId prop is passed (#530)', async () => {
+    setupFetch(mockTransactions);
+    render(<TransactionHistory collateralId="col-1" />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Repayment').length).toBeGreaterThan(0);
+    });
+
+    const calledUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    expect(calledUrl).toContain('collateralId=col-1');
+    expect(calledUrl).not.toContain('borrower=');
   });
 
   it('table scroll region has an accessible aria-label', async () => {

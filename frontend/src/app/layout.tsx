@@ -7,9 +7,13 @@ import Navbar from '@/components/Navbar';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import ThemeProvider, { ThemeScript } from '@/components/ThemeProvider';
 import { ToastProvider, ToastContainer } from '@/components/toast';
+import SWRErrorToastConfig from '@/components/SWRErrorToastConfig';
 import SkipToContent from '@/components/SkipToContent';
 import NetworkMismatchBanner from '@/components/NetworkMismatchBanner';
 import PrintDateScript from '@/components/PrintDateScript';
+import TopProgressBar from '@/components/TopProgressBar';
+import SessionTimeoutBanner from '@/components/SessionTimeoutBanner';
+import WhatsNewProvider from '@/components/WhatsNewProvider';
 import InitialLoadingScreen from '@/components/InitialLoadingScreen';
 
 export const metadata: Metadata = {
@@ -128,6 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <KeyboardShortcutsProvider>
             <ToastProvider>
+            <SWRErrorToastConfig>
               <SkipToContent />
               <TopProgressBar />
               <SessionTimeoutBanner />
@@ -194,6 +199,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </main>
               <ToastContainer />
               <WhatsNewProvider />
+            </SWRErrorToastConfig>
             </ToastProvider>
           </KeyboardShortcutsProvider>
         </ThemeProvider>

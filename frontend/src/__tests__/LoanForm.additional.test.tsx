@@ -127,7 +127,7 @@ describe('LoanForm – button disabled state', () => {
 
 describe('LoanForm – step navigation', () => {
   it('stays on collateral step when registration fails', async () => {
-    fetchMock.mockRejectedValue(new Error('Server error'));
+    fetchMock.mockRejectedValue(new Error('Network down'));
 
     renderForm(<LoanForm walletAddress="GTEST" />);
     fillCollateral();
@@ -135,7 +135,7 @@ describe('LoanForm – step navigation', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole('alert').some((el) => el.textContent?.includes('Server error'))
+        screen.getAllByRole('alert').some((el) => el.textContent?.includes('Connection failed'))
       ).toBe(true)
     );
     expect(screen.getByText('1. Register Collateral')).toBeTruthy();

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { throwIfNotOk } from "@/lib/api";
+import { classifyApiError } from "@/lib/apiErrorToast";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -58,13 +60,15 @@ export default function NotificationPreferences({ wallet = "anonymous" }: { wall
           body: JSON.stringify({ [key]: next[key] }),
         }
       );
-      if (!res.ok) throw new Error();
+      await throwIfNotOk(res);
       const saved: NotificationSettings = await res.json();
       setSettings(saved);
       success("Notification preference saved.");
-    } catch {
+    } catch (e) {
       setSettings(prev);
-      toastError("Failed to save preference. Please try again.");
+      // #532: classify network / 4xx / 5xx failures into the right toast.
+      const { message } = classifyApiError(e);
+      toastError(message);
     }
   }
 

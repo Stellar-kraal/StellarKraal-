@@ -5,7 +5,8 @@ import { CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
 import { Icon } from "@/components/Icon";
 import { ToastItem, ToastVariant } from "./ToastContext";
 
-const AUTO_DISMISS_MS = 4000;
+// #532: toasts auto-dismiss after 5 seconds.
+const AUTO_DISMISS_MS = 5000;
 
 const variantStyles: Record<ToastVariant, string> = {
   success: "bg-emerald-700 text-white",
